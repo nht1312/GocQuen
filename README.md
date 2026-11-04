@@ -178,6 +178,9 @@ The database schema is applied on every boot and every statement is
 `IF NOT EXISTS`, so there is no migration step to run.
 
 **2. Web on Vercel.** New Project → this repo → **Root Directory `apps/web`**.
+Vercel detects the npm workspaces at the repo root and installs from there, so
+no install command needs overriding; `apps/web/vercel.json` only points the
+build at `vercel-build`, which compiles the shared package first.
 Add two environment variables, then deploy:
 
 ```bash
