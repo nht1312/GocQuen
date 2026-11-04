@@ -1,0 +1,31 @@
+{
+  "name": "virtual-cafe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Virtual Cafe - your favorite cafe, always within reach",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w @virtual-cafe/shared",
+    "dev": "npm run build:shared && concurrently -n server,web -c cyan,magenta --kill-others --success first \"npm run dev -w @virtual-cafe/server\" \"npm run dev -w @virtual-cafe/web\"",
+    "dev:fresh": "npm run free-ports && npm run dev",
+    "dev:server": "npm run dev -w @virtual-cafe/server",
+    "dev:web": "npm run dev -w @virtual-cafe/web",
+    "build": "npm run build:shared && npm run build -w @virtual-cafe/server && npm run build -w @virtual-cafe/web",
+    "start": "concurrently -n server,web -c cyan,magenta --kill-others --success first \"npm run start -w @virtual-cafe/server\" \"npm run start -w @virtual-cafe/web\"",
+    "typecheck": "npm run build:shared && npm run typecheck -w @virtual-cafe/server && npm run typecheck -w @virtual-cafe/web",
+    "test": "npm run build:shared && npm run test -w @virtual-cafe/server",
+    "smoke": "node tools/smoke-test.mjs",
+    "visual": "node tools/visual-check.mjs",
+    "free-ports": "node tools/free-ports.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}
