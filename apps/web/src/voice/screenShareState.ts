@@ -227,3 +227,53 @@ export const SCREEN_STEP_LABEL: Record<'claim' | 'token' | 'connect' | 'publish'
   connect: 'Không kết nối được tới máy chủ hình ảnh',
   publish: 'Không gửi được màn hình đi',
 };
+
+/**
+ * Whether the shared screen has taken the interface over, and whether that
+ * was the person's own decision.
+ *
+ * `chosen` is what separates "nobody has said otherwise yet" from "this
+ * person wants the café back". Without it the automatic rule below would
+ * re-expand the screen over someone who had just collapsed it.
+ */
+export interface ScreenShareFocus {
+  focused: boolean;
+  chosen: boolean;
+}
+
+/** The café in front, nothing decided — the state every share starts from. */
+export const SCREEN_FOCUS_OFF: ScreenShareFocus = { focused: false, chosen: false };
+
+/** A deliberate expand or collapse, which the automatic rule then leaves alone. */
+export function chooseScreenShareFocus(focused: boolean): ScreenShareFocus {
+  return { focused, chosen: true };
+}
+
+/**
+ * The layout a phase calls for, given where it already is.
+ *
+ * A screen that is live is the point of the table for as long as it lasts, so
+ * it takes the interface over by itself rather than waiting for everyone
+ * watching to find the expand button. Ending the share hands the café back
+ * and forgets the override, so the next share at the table is judged afresh.
+ *
+ * `connecting` and `reconnecting` hold whatever is on screen: they are blips
+ * on the way into or back from a live share, and collapsing on one would
+ * flash the café in and out.
+ *
+ * Returns the same object when nothing changes — the store compares by
+ * identity, and a new object per phase tick would re-render the café.
+ */
+export function nextScreenShareFocus(
+  current: ScreenShareFocus,
+  phase: ScreenSharePhase,
+): ScreenShareFocus {
+  if (phase === 'connecting' || phase === 'reconnecting') return current;
+
+  if (phase === 'publishing' || phase === 'watching') {
+    if (current.chosen || current.focused) return current;
+    return { focused: true, chosen: false };
+  }
+
+  return current.focused || current.chosen ? SCREEN_FOCUS_OFF : current;
+}

@@ -126,6 +126,15 @@ Backend first, as the spec requires. Each task is one commit with tests.
       §2.3 amended so the spec no longer contradicts shipped code. Every
       documented endpoint was checked against the running server.
 
+- [x] **12. The screen takes the room over** — a live share expands over the
+      café for the publisher and for everyone who joins to watch, instead of
+      waiting for each of them to press *Phóng to*. One pure rule
+      (`nextScreenShareFocus`, 8 tests) decides the layout from the phase, and
+      a deliberate *Quay lại quán* outranks it for the rest of that share.
+      Applied from `useCafe`, not the panel, so the takeover does not depend
+      on the side panels being open. *Not visually verified — same two-browser
+      limit as tasks 8–10.*
+
 ## How table-level authorization is enforced
 
 Four independent layers, no UI involvement:

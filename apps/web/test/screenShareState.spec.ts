@@ -1,9 +1,12 @@
 import type { ScreenShareSessionInfo } from '@virtual-cafe/shared';
 import {
+  SCREEN_FOCUS_OFF,
+  chooseScreenShareFocus,
   classifyScreenShareError,
   deriveScreenShareView,
   isScreenShareSupported,
   needsScreenRoom,
+  nextScreenShareFocus,
 } from '@/voice/screenShareState';
 
 const SESSION: ScreenShareSessionInfo = {
@@ -190,5 +193,62 @@ describe('classifyScreenShareError — spec section 10', () => {
     const result = classifyScreenShareError('what even is this');
     expect(result.local).toBe('error');
     expect(result.message).not.toBe('');
+  });
+});
+
+describe('nextScreenShareFocus — a live screen takes the interface over', () => {
+  it('takes over as soon as my own share goes live', () => {
+    expect(nextScreenShareFocus(SCREEN_FOCUS_OFF, 'publishing')).toEqual({
+      focused: true,
+      chosen: false,
+    });
+  });
+
+  it('takes over for everyone who joins to watch', () => {
+    expect(nextScreenShareFocus(SCREEN_FOCUS_OFF, 'watching')).toEqual({
+      focused: true,
+      chosen: false,
+    });
+  });
+
+  it('leaves a deliberate return to the café alone', () => {
+    // Someone who pressed "Quay lại quán" meant it. Re-expanding on the next
+    // render would take the room away from them again.
+    const chosen = chooseScreenShareFocus(false);
+    expect(nextScreenShareFocus(chosen, 'watching')).toBe(chosen);
+  });
+
+  it('keeps a deliberate expansion', () => {
+    const chosen = chooseScreenShareFocus(true);
+    expect(nextScreenShareFocus(chosen, 'publishing')).toBe(chosen);
+  });
+
+  it('holds the current layout while connecting or reconnecting', () => {
+    // Collapsing on a blip and expanding again on recovery would flash the
+    // café in and out for no reason.
+    const expanded = { focused: true, chosen: false };
+    expect(nextScreenShareFocus(expanded, 'reconnecting')).toBe(expanded);
+    expect(nextScreenShareFocus(SCREEN_FOCUS_OFF, 'connecting')).toBe(SCREEN_FOCUS_OFF);
+  });
+
+  it('gives the café back when the share ends, and forgets the override', () => {
+    // The next share at this table must take over again on its own merits.
+    expect(nextScreenShareFocus(chooseScreenShareFocus(false), 'idle')).toEqual(SCREEN_FOCUS_OFF);
+    expect(nextScreenShareFocus({ focused: true, chosen: false }, 'idle')).toEqual(SCREEN_FOCUS_OFF);
+  });
+
+  it('gives the café back when the screen is lost or refused', () => {
+    expect(nextScreenShareFocus({ focused: true, chosen: false }, 'error')).toEqual(
+      SCREEN_FOCUS_OFF,
+    );
+    expect(nextScreenShareFocus({ focused: true, chosen: false }, 'denied')).toEqual(
+      SCREEN_FOCUS_OFF,
+    );
+  });
+
+  it('returns the same object when nothing changes', () => {
+    // The store compares by identity; a fresh object on every phase tick
+    // would re-render the whole café for no change.
+    expect(nextScreenShareFocus(SCREEN_FOCUS_OFF, 'idle')).toBe(SCREEN_FOCUS_OFF);
   });
 });

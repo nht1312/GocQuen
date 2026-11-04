@@ -204,7 +204,6 @@ export function useCafe() {
         const state = store.getState();
         state.setScreenShare(null);
         state.setScreenShareLocal('none');
-        state.setScreenShareFocused(false);
       });
 
       socket.on(SERVER_EVENTS.screenShareFailed, (payload: ScreenShareFailedEvent) => {
@@ -439,7 +438,6 @@ export function useCafe() {
         const state = store.getState();
         state.setScreenShare(null);
         state.setScreenShareLocal('none');
-        state.setScreenShareFocused(false);
         if (session) void api.screenShareStop(session.token).catch(() => undefined);
       },
       onDisconnected: () => setScreenVideo(null),
@@ -542,6 +540,12 @@ export function useCafe() {
       local: screenLocal,
     });
 
+    // The layout is derived from the same view as the transport, and from
+    // here rather than from the panel: a share going live has to take the
+    // interface over even when the side panels are closed and the panel
+    // itself is not mounted to notice.
+    store.getState().syncScreenShareFocus(view.phase);
+
     if (!needsScreenRoom(view)) {
       if (screenRef.current?.isConnected) {
         void screenRef.current.disconnect();
@@ -581,7 +585,6 @@ export function useCafe() {
     const state = store.getState();
     state.setScreenShare(null);
     state.setScreenShareLocal('none');
-    state.setScreenShareFocused(false);
   }, []);
 
   return {

@@ -24,6 +24,7 @@ export function CafeShell() {
   const phase = useCafeStore((state) => state.phase);
   const connectionMessage = useCafeStore((state) => state.connectionMessage);
   const seated = Boolean(useCafeStore((state) => state.self?.seatId));
+  const screenFocused = useCafeStore((state) => state.screenShareFocus.focused);
 
   useEffect(() => {
     setShowOnboarding(!readFlag(STORAGE_KEYS.onboarding));
@@ -56,6 +57,14 @@ export function CafeShell() {
     if (seated) controls.stand();
     else controls.sit();
   }, [controls, seated]);
+
+  const screenShare = (
+    <ScreenSharePanel
+      video={controls.screenVideo}
+      onStart={() => void controls.startScreenShare()}
+      onStop={() => void controls.stopScreenShare()}
+    />
+  );
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-charcoal">
@@ -92,7 +101,11 @@ export function CafeShell() {
         </button>
       </div>
 
-      {panelsOpen ? (
+      {/* A live screen takes the room over, so the side panels stand down
+          until it ends or someone asks for the café back. It is rendered on
+          its own below so the takeover does not depend on the panel drawer
+          being open. */}
+      {panelsOpen && !screenFocused ? (
         <div className="pointer-events-none absolute bottom-3 right-3 top-20 flex w-[290px] max-w-[92vw] flex-col gap-3 overflow-y-auto">
           <div className="pointer-events-auto">
             <AudioDock
@@ -102,13 +115,7 @@ export function CafeShell() {
               onEnableAudio={() => void controls.ensureAudio()}
             />
           </div>
-          <div className="pointer-events-auto">
-            <ScreenSharePanel
-              video={controls.screenVideo}
-              onStart={() => void controls.startScreenShare()}
-              onStop={() => void controls.stopScreenShare()}
-            />
-          </div>
+          <div className="pointer-events-auto">{screenShare}</div>
           <div className="pointer-events-auto">
             <PeoplePanel
               onMute={controls.muteUser}
@@ -121,6 +128,8 @@ export function CafeShell() {
           </div>
         </div>
       ) : null}
+
+      {screenFocused ? screenShare : null}
 
       {phase === 'error' ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-charcoal/80 p-6 text-center backdrop-blur">

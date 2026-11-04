@@ -222,6 +222,26 @@ café-wide broadcast and no way to watch a table you are not sitting at.
 - Metadata only is persisted — who shared, at which table, for how long.
   **No screen content is ever stored or recorded.**
 
+### While a screen is live, it is the room
+
+A live screen takes the interface over by itself — for whoever is sharing and
+for everyone who joins to watch. The shared screen fills the window, the side
+panels stand down, and the café goes behind it until the share ends. Nobody
+has to find an expand button to read what is being shown.
+
+**Quay lại quán** collapses it back to the floating panel, and that decision
+is remembered for as long as that share lasts: the layout will not expand over
+someone again after they have asked for the café back. The next share at the
+table is judged afresh. Ending the share — or standing up — hands the café
+back on its own.
+
+(This is unrelated to **Focus Mode** in the audio dock, which dims the room's
+ambience. The names collide; the features do not touch.)
+
+The rule is one pure function, `nextScreenShareFocus`, applied from `useCafe`
+rather than from the panel — a share going live has to take the interface over
+even when the side panels are closed and the panel is not mounted to notice.
+
 ### How a table's screen is kept private
 
 Four independent layers, none of which is the UI:

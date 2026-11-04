@@ -1,7 +1,16 @@
 'use client';
 
 import { create } from 'zustand';
-import type { LocalScreenShareState } from '@/voice/screenShareState';
+import {
+  SCREEN_FOCUS_OFF,
+  chooseScreenShareFocus,
+  nextScreenShareFocus,
+} from '@/voice/screenShareState';
+import type {
+  LocalScreenShareState,
+  ScreenShareFocus,
+  ScreenSharePhase,
+} from '@/voice/screenShareState';
 import {
   AudioSettings,
   ChatMessage,
@@ -56,8 +65,8 @@ interface CafeState {
   screenShare: ScreenShareSessionInfo | null;
   /** What this browser is doing, which the server cannot know. */
   screenShareLocal: LocalScreenShareState;
-  /** Focus mode expands the shared screen over the café. */
-  screenShareFocused: boolean;
+  /** Whether the shared screen has taken the café over, and who decided. */
+  screenShareFocus: ScreenShareFocus;
   voiceGroupId: string | null;
   voiceMembers: string[];
   micOn: boolean;
@@ -103,7 +112,9 @@ interface CafeState {
   setVoicePhase: (phase: VoicePhase) => void;
   setScreenShare: (session: ScreenShareSessionInfo | null) => void;
   setScreenShareLocal: (local: LocalScreenShareState) => void;
-  setScreenShareFocused: (focused: boolean) => void;
+  /** Apply the automatic rule for a phase; a deliberate choice outranks it. */
+  syncScreenShareFocus: (phase: ScreenSharePhase) => void;
+  setScreenShareFocus: (focused: boolean) => void;
   setVoiceGroup: (groupId: string | null, members: string[]) => void;
   setMic: (on: boolean, error?: string | null) => void;
 
@@ -144,7 +155,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   voicePhase: 'off',
   screenShare: null,
   screenShareLocal: 'none',
-  screenShareFocused: false,
+  screenShareFocus: SCREEN_FOCUS_OFF,
   voiceGroupId: null,
   voiceMembers: [],
   micOn: false,
@@ -216,7 +227,12 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   setVoicePhase: (voicePhase) => set({ voicePhase }),
   setScreenShare: (screenShare) => set({ screenShare }),
   setScreenShareLocal: (screenShareLocal) => set({ screenShareLocal }),
-  setScreenShareFocused: (screenShareFocused) => set({ screenShareFocused }),
+  syncScreenShareFocus: (phase) =>
+    set((state) => {
+      const next = nextScreenShareFocus(state.screenShareFocus, phase);
+      return next === state.screenShareFocus ? {} : { screenShareFocus: next };
+    }),
+  setScreenShareFocus: (focused) => set({ screenShareFocus: chooseScreenShareFocus(focused) }),
   setVoiceGroup: (voiceGroupId, voiceMembers) => set({ voiceGroupId, voiceMembers }),
   setMic: (micOn, micError = null) => set({ micOn, micError }),
 
@@ -312,7 +328,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
       voicePhase: 'off',
       screenShare: null,
       screenShareLocal: 'none',
-      screenShareFocused: false,
+      screenShareFocus: SCREEN_FOCUS_OFF,
       micOn: false,
       instanceId: null,
     }),

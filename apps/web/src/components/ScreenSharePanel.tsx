@@ -15,9 +15,13 @@ interface Props {
 /**
  * The shared screen (feature spec §2.3).
  *
- * Floating by default so the café, the avatars and the people around you stay
- * visible — this is meant to be working side by side, not a meeting window.
- * Focus mode expands it over the room for when the screen is the point.
+ * A live screen takes the interface over by itself: once someone at the table
+ * is sharing, that screen is what the table is doing, and everyone who joins
+ * to watch should see it full size without hunting for an expand button. The
+ * café goes behind it until the share ends or someone asks for it back.
+ *
+ * Outside a live share the panel floats among the others, so starting a share
+ * is one small control rather than a mode you enter.
  *
  * The <video> element is created by LiveKit and adopted here rather than
  * rendered by React. Letting React own it would mean re-creating the element
@@ -27,8 +31,8 @@ interface Props {
 export function ScreenSharePanel({ video, onStart, onStop }: Props) {
   const session = useCafeStore((state) => state.screenShare);
   const local = useCafeStore((state) => state.screenShareLocal);
-  const focused = useCafeStore((state) => state.screenShareFocused);
-  const setFocused = useCafeStore((state) => state.setScreenShareFocused);
+  const focus = useCafeStore((state) => state.screenShareFocus);
+  const setFocused = useCafeStore((state) => state.setScreenShareFocus);
   const self = useCafeStore((state) => state.self);
   const seated = Boolean(self?.seatId);
 
@@ -38,6 +42,10 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
     seated,
     local,
   });
+
+  // The phase drives this from useCafe, so that a share going live takes
+  // the interface over whether or not this panel happens to be mounted.
+  const focused = focus.focused;
 
   const mount = useRef<HTMLDivElement | null>(null);
 
@@ -76,7 +84,7 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
       <div
         ref={mount}
         className={`relative overflow-hidden rounded-lg bg-black ${
-          focused ? 'h-[calc(100vh-13rem)]' : 'aspect-video w-full'
+          focused ? 'h-[calc(100dvh-12rem)] w-full' : 'aspect-video w-full'
         }`}
       >
         {!video ? (
@@ -125,7 +133,9 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
 
   return (
     <div className="pointer-events-auto fixed inset-0 z-30 grid place-items-center bg-charcoal/90 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-5xl">
+      {/* As wide as the display allows: the point of taking over is that the
+          screen is readable, not that it is merely bigger. */}
+      <div className="w-full max-w-[1600px]">
         <Panel
           title={
             view.phase === 'publishing'
