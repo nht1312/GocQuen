@@ -18,10 +18,16 @@ services:
     # split. Add @socket.io/redis-adapter before raising this.
     numInstances: 1
 
+    # `--include=dev` is load-bearing: NODE_ENV=production is set below and
+    # Render applies it during the build too, which makes npm skip every
+    # devDependency — typescript and @nestjs/cli among them. Without this the
+    # build either cannot find `tsc` or picks up some other compiler from the
+    # build image.
+    #
     # `npm run build -w @virtual-cafe/server` runs `nest build`, which also
     # copies storage/schema.sql into dist. A plain `tsc` would not, and the
     # server would crash on boot once DATABASE_URL is set.
-    buildCommand: npm ci && npm run build:shared && npm run build -w @virtual-cafe/server
+    buildCommand: npm ci --include=dev && npm run build:shared && npm run build -w @virtual-cafe/server
     startCommand: npm run start -w @virtual-cafe/server
 
     healthCheckPath: /health
