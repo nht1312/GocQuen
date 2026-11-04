@@ -21,6 +21,23 @@ const post = async (path, body, token) => {
   return { status: res.status, body: await res.json().catch(() => null) };
 };
 
+/** Read a LiveKit grant without verifying it; the server owns the signature. */
+function decodeGrant(token) {
+  try {
+    const [, payload] = String(token).split('.');
+    return JSON.parse(Buffer.from(payload ?? '', 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+const get = async (path, token) => {
+  const res = await fetch(BASE + path, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
+};
+
 const wait = (socket, event, timeout = 4000) =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), timeout);
@@ -192,6 +209,67 @@ async function main() {
       tokenResult.body?.token === null,
       tokenResult.body?.reason);
   }
+
+  // --- screen sharing is confined to one table ----------------------------
+  // Alice is seated at group_a and Bob at group_b, so every check below is a
+  // genuine cross-table attempt over real HTTP and real sockets.
+  let bobSawScreenShare = false;
+  bob.socket.on('screen-share:started', () => { bobSawScreenShare = true; });
+
+  const started = await post('/voice/screen-share/start', {}, alice.token);
+  check('a seated player can start sharing their screen',
+    started.body?.active === true && started.body?.session?.publisherId === alice.userId,
+    started.body?.session?.publisherName);
+
+  const aliceScreen = await post('/voice/screen-share/token', {}, alice.token);
+  const bobScreen = await post('/voice/screen-share/token', {}, bob.token);
+
+  if (aliceScreen.body?.token && bobScreen.body?.token) {
+    const aliceRoom = decodeGrant(aliceScreen.body.token)?.video?.room;
+    const bobRoom = decodeGrant(bobScreen.body.token)?.video?.room;
+
+    check('the screen room is scoped to your own table',
+      aliceRoom?.endsWith('__group_a__screen') === true, aliceRoom);
+
+    // The decisive one: Bob holds a perfectly valid token and still cannot
+    // reach Alice's media, because it names a different room entirely.
+    check('another table’s token names a different screen room',
+      typeof bobRoom === 'string' && bobRoom !== aliceRoom &&
+        bobRoom.endsWith('__group_b__screen'),
+      bobRoom);
+
+    // Watching a screen must not become a way to hear a table.
+    check('a screen token carries no microphone',
+      Array.isArray(decodeGrant(aliceScreen.body.token)?.video?.canPublishSources) &&
+        !decodeGrant(aliceScreen.body.token).video.canPublishSources.includes('microphone'),
+      JSON.stringify(decodeGrant(aliceScreen.body.token)?.video?.canPublishSources));
+
+    check('the screen room is not the voice room',
+      aliceRoom !== decodeGrant(aliceScreen.body.token)?.video?.room?.replace('__screen', ''),
+      aliceRoom);
+  }
+
+  const bobView = await get('/voice/screen-share', bob.token);
+  check('another table is not told a session exists',
+    bobView.body?.active === false && bobView.body?.session === null,
+    JSON.stringify(bobView.body));
+
+  const bobStop = await post('/voice/screen-share/stop', {}, bob.token);
+  check('another table cannot stop a session', bobStop.status === 403, String(bobStop.status));
+
+  const stillRunning = await get('/voice/screen-share', alice.token);
+  check('the session survives another table trying to stop it',
+    stillRunning.body?.active === true);
+
+  await sleep(400);
+  check('the start event never reaches another table', bobSawScreenShare === false);
+
+  const aliceStop = await post('/voice/screen-share/stop', {}, alice.token);
+  // Nest answers POST with 201 by default and the rest of this API does the
+  // same (/auth/guest included), so the body is the signal, not the code.
+  check('the publisher can stop their own session',
+    aliceStop.status < 300 && aliceStop.body?.active === false,
+    String(aliceStop.status));
 
   // --- chat scope ---------------------------------------------------------
   let bobHeard = false;

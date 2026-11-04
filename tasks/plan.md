@@ -117,7 +117,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       *Done: capability check for unsupported browsers, and one classifier
       deciding local state / message / whether to interrupt. 8 more tests.
       Also fixed an English string missed by the translation pass.*
-- [ ] **10. Isolation tests** — cross-table access attempts in the smoke suite.
+- [x] **10. Isolation tests** — cross-table access attempts in the smoke suite.
+      *Done: 10 checks against a running server, 26/26. Mutation-verified —
+      leaking sessions across tables makes the suite fail. This closes the gap
+      deferred from task 4.*
 - [ ] **11. Docs** — README, and amend `Virtual_Cafe_SPEC_v1.0.md` §2.3.
 
 ## How table-level authorization is enforced
