@@ -12,6 +12,11 @@ import { AppConfig } from '../config/app-config';
 import { ModerationReportRecord, Store, UserRecord } from './store';
 
 type QueryResult<T> = { rows: T[] };
+interface PgPoolOptions {
+  connectionString: string;
+  ssl?: { rejectUnauthorized: boolean };
+}
+
 interface PgPool {
   query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<QueryResult<T>>;
   end(): Promise<void>;
@@ -34,14 +39,19 @@ export class PostgresStore extends Store {
   }
 
   async init(): Promise<void> {
-    let Pool: new (options: { connectionString: string }) => PgPool;
+    let Pool: new (options: PgPoolOptions) => PgPool;
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       ({ Pool } = require('pg'));
     } catch {
       throw new Error('DATABASE_URL is set but the "pg" package is not installed. Run: npm i pg');
     }
-    this.pool = new Pool({ connectionString: this.config.databaseUrl as string });
+    const ssl = this.config.databaseSsl;
+    this.pool = new Pool({
+      connectionString: this.config.databaseUrl as string,
+      ...(ssl ? { ssl } : {}),
+    });
+    this.logger.log(`Connecting to Postgres (TLS ${ssl ? 'on' : 'off'})`);
     const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
     await this.pool.query(schema);
     await this.seedWorld();

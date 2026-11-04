@@ -47,6 +47,27 @@ export class AppConfig {
 
   readonly databaseUrl = process.env.DATABASE_URL?.trim() || null;
 
+  /**
+   * TLS settings for the database connection.
+   *
+   * Managed Postgres (Render, Neon, Supabase, RDS) terminates TLS with a
+   * certificate chain Node does not trust out of the box, so verification has
+   * to be relaxed for those. That is a real trade-off, so it is opt-in rather
+   * than the default:
+   *
+   *   DATABASE_SSL=require   encrypt, do not verify the certificate (managed
+   *                          providers; the usual setting)
+   *   DATABASE_SSL=strict    encrypt and verify against the system CA store
+   *   unset / false          no TLS (local Postgres, or a provider's internal
+   *                          network where traffic never leaves the VPC)
+   */
+  readonly databaseSsl: { rejectUnauthorized: boolean } | null = (() => {
+    const mode = process.env.DATABASE_SSL?.trim().toLowerCase();
+    if (!mode || mode === 'false' || mode === 'disable' || mode === 'off') return null;
+    if (mode === 'strict' || mode === 'verify') return { rejectUnauthorized: true };
+    return { rejectUnauthorized: false };
+  })();
+
   readonly livekitUrl = process.env.LIVEKIT_URL?.trim() || null;
   readonly livekitApiKey = process.env.LIVEKIT_API_KEY?.trim() || null;
   readonly livekitApiSecret = process.env.LIVEKIT_API_SECRET?.trim() || null;

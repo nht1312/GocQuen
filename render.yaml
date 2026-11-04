@@ -1,0 +1,65 @@
+# Render Blueprint for the Góc Quen realtime server.
+#
+# Create it from the Render dashboard: New > Blueprint, point at this repo.
+# The web client is NOT here — it deploys separately to Vercel from apps/web.
+
+services:
+  - type: web
+    name: gocquen-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+
+    # MUST stay at 1. All presence, seat ownership and voice-group state lives
+    # in this process's memory and there is no Socket.IO Redis adapter, so a
+    # second instance would be a second, invisible café: people who think they
+    # are in the same room would not see each other and seat authority would
+    # split. Add @socket.io/redis-adapter before raising this.
+    numInstances: 1
+
+    # `npm run build -w @virtual-cafe/server` runs `nest build`, which also
+    # copies storage/schema.sql into dist. A plain `tsc` would not, and the
+    # server would crash on boot once DATABASE_URL is set.
+    buildCommand: npm ci && npm run build:shared && npm run build -w @virtual-cafe/server
+    startCommand: npm run start -w @virtual-cafe/server
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render generates a strong value and keeps it out of the repo.
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # Set once Vercel has given the web app its URL, e.g.
+      # https://gocquen.vercel.app — comma separated, no trailing slash.
+      # In production this list is used verbatim: anything not listed is
+      # refused, including localhost.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Paste from cloud.livekit.io > Settings > Keys. Never commit these.
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+
+      # Render supplies the *internal* connection string, which stays inside
+      # its private network, so DATABASE_SSL is deliberately left unset. Set it
+      # to `require` if you ever point this at an external database instead.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gocquen-db
+          property: connectionString
+
+databases:
+  - name: gocquen-db
+    plan: free
+    region: singapore
+    databaseName: gocquen
+    user: gocquen
