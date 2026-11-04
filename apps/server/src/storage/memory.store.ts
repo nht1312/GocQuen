@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { AudioSettings, AvatarConfig } from '@virtual-cafe/shared';
-import { ModerationReportRecord, Store, UserRecord } from './store';
+import { ModerationReportRecord, ScreenShareSessionRecord, Store, UserRecord } from './store';
 
 /** Default store for development and prototypes. Everything is lost on restart. */
 @Injectable()
@@ -10,6 +10,7 @@ export class MemoryStore extends Store {
   private readonly preferences = new Map<string, Partial<AudioSettings>>();
   private readonly reports = new Map<string, ModerationReportRecord>();
   private readonly blocks = new Map<string, Set<string>>();
+  private readonly screenShares = new Map<string, ScreenShareSessionRecord>();
 
   async init(): Promise<void> {
     /* nothing to migrate */
@@ -83,5 +84,32 @@ export class MemoryStore extends Store {
 
   async listBlocks(blockerUserId: string): Promise<string[]> {
     return [...(this.blocks.get(blockerUserId) ?? [])];
+  }
+
+  async recordScreenShareStart(input: {
+    id: string;
+    instanceId: string;
+    groupId: string;
+    publisherId: string;
+    startedAt: number;
+  }): Promise<void> {
+    this.screenShares.set(input.id, {
+      ...input,
+      status: 'active',
+      endedAt: null,
+      endReason: null,
+    });
+  }
+
+  async recordScreenShareEnd(sessionId: string, endReason: string, endedAt: number): Promise<void> {
+    const record = this.screenShares.get(sessionId);
+    // A sweep can race a manual stop, and an end can arrive with no start if
+    // the start write failed. Neither may throw into the live session.
+    if (!record || record.status === 'ended') return;
+    this.screenShares.set(sessionId, { ...record, status: 'ended', endedAt, endReason });
+  }
+
+  async findScreenShareSession(id: string): Promise<ScreenShareSessionRecord | null> {
+    return this.screenShares.get(id) ?? null;
   }
 }

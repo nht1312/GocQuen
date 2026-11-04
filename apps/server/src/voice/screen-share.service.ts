@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { SEATS_BY_ID } from '@virtual-cafe/shared';
+import { Store } from '../storage/store';
 import { InstanceManager } from '../world/instance-manager.service';
 
 /** Why an active session ended. Persisted as metadata, never screen content. */
@@ -50,7 +51,26 @@ export class ScreenShareService {
   /** Active session per table, keyed by `instanceId::groupId`. */
   private readonly sessions = new Map<string, ScreenShareSession>();
 
-  constructor(private readonly instances: InstanceManager) {}
+  constructor(
+    private readonly instances: InstanceManager,
+    private readonly store: Store,
+  ) {}
+
+  /**
+   * Write the audit row without blocking the caller.
+   *
+   * `claim` and `release` are synchronous on purpose — that is what makes the
+   * one-publisher-per-table check atomic, since Node cannot interleave another
+   * request in the middle of it. Awaiting a database write there would open
+   * exactly the race the synchronous path exists to prevent. So the audit
+   * write is fired afterwards, and a failure is logged rather than thrown: a
+   * database problem must not stop people sharing their screen.
+   */
+  private audit(write: Promise<void>, what: string): void {
+    void write.catch((error: unknown) => {
+      this.logger.warn(`Could not record screen share ${what}: ${String(error)}`);
+    });
+  }
 
   private static key(instanceId: string, groupId: string): string {
     return `${instanceId}::${groupId}`;
@@ -145,6 +165,16 @@ export class ScreenShareService {
     };
     this.sessions.set(key, session);
     this.logger.log(`Screen share ${session.id} started by ${userId} at ${table.groupId}`);
+    this.audit(
+      this.store.recordScreenShareStart({
+        id: session.id,
+        instanceId: session.instanceId,
+        groupId: session.groupId,
+        publisherId: session.publisherId,
+        startedAt: session.startedAt,
+      }),
+      'start',
+    );
     return { ok: true, session };
   }
 
@@ -154,6 +184,7 @@ export class ScreenShareService {
       if (session.publisherId !== userId) continue;
       this.sessions.delete(key);
       this.logger.log(`Screen share ${session.id} ended (${reason})`);
+      this.audit(this.store.recordScreenShareEnd(session.id, reason, Date.now()), 'end');
       return { ok: true, session };
     }
     return { ok: false, code: 'not_found', message: 'Bạn không chia sẻ màn hình' };
@@ -215,6 +246,7 @@ export class ScreenShareService {
       if (this.live(session)) return null;
       this.sessions.delete(key);
       this.logger.log(`Screen share ${session.id} ended (${reason})`);
+      this.audit(this.store.recordScreenShareEnd(session.id, reason, Date.now()), 'end');
       return session;
     }
     return null;

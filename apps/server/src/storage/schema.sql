@@ -92,3 +92,33 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   metadata   JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Screen-sharing audit trail (feature spec section 8). Metadata only: this
+-- records that a share happened, between whom and for how long. No column
+-- could hold screen content, and none ever should.
+--
+-- Note this is NOT what enforces one publisher per table. The café runs as a
+-- single instance and the live registry in ScreenShareService decides that
+-- synchronously; these rows are written afterwards and are an audit log, not
+-- a lock. The partial unique index below is a backstop that would catch a
+-- second writer if that ever stopped being true.
+CREATE TABLE IF NOT EXISTS screen_share_sessions (
+  id           UUID PRIMARY KEY,
+  instance_id  UUID        NOT NULL,
+  group_id     TEXT        NOT NULL,
+  publisher_id UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  status       TEXT        NOT NULL DEFAULT 'active',
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ended_at     TIMESTAMPTZ,
+  end_reason   TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS screen_share_sessions_one_active_per_table_idx
+  ON screen_share_sessions (instance_id, group_id)
+  WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS screen_share_sessions_publisher_idx
+  ON screen_share_sessions (publisher_id, started_at DESC);
+
+CREATE INDEX IF NOT EXISTS screen_share_sessions_instance_idx
+  ON screen_share_sessions (instance_id, status);

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { SEATS_BY_ID, userSeats } from '@virtual-cafe/shared';
 import { AppConfig } from '../src/config/app-config';
+import { MemoryStore } from '../src/storage/memory.store';
 import { InstanceManager } from '../src/world/instance-manager.service';
 import { ScreenShareService } from '../src/voice/screen-share.service';
 import { VoiceService } from '../src/voice/voice.service';
@@ -16,7 +17,7 @@ function makeServices() {
     livekitApiSecret: SECRET,
   });
   const manager = new InstanceManager(config);
-  const screen = new ScreenShareService(manager);
+  const screen = new ScreenShareService(manager, new MemoryStore());
   return { manager, screen, voice: new VoiceService(config, manager, screen) };
 }
 

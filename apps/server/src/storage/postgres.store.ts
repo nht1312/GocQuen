@@ -9,7 +9,7 @@ import {
   SEAT_DEFINITIONS,
 } from '@virtual-cafe/shared';
 import { AppConfig } from '../config/app-config';
-import { ModerationReportRecord, Store, UserRecord } from './store';
+import { ModerationReportRecord, ScreenShareSessionRecord, Store, UserRecord } from './store';
 
 type QueryResult<T> = { rows: T[] };
 interface PgPoolOptions {
@@ -251,5 +251,61 @@ export class PostgresStore extends Store {
       [blockerUserId],
     );
     return result.rows.map((row) => row.blocked_user_id);
+  }
+
+  async recordScreenShareStart(input: {
+    id: string;
+    instanceId: string;
+    groupId: string;
+    publisherId: string;
+    startedAt: number;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO screen_share_sessions
+         (id, instance_id, group_id, publisher_id, status, started_at)
+       VALUES ($1, $2, $3, $4, 'active', to_timestamp($5 / 1000.0))
+       ON CONFLICT (id) DO NOTHING`,
+      [input.id, input.instanceId, input.groupId, input.publisherId, input.startedAt],
+    );
+  }
+
+  async recordScreenShareEnd(sessionId: string, endReason: string, endedAt: number): Promise<void> {
+    // `status = 'active'` in the WHERE clause keeps the first explanation when
+    // a sweep races a manual stop, matching the in-memory store.
+    await this.pool.query(
+      `UPDATE screen_share_sessions
+          SET status = 'ended', ended_at = to_timestamp($2 / 1000.0), end_reason = $3
+        WHERE id = $1 AND status = 'active'`,
+      [sessionId, endedAt, endReason],
+    );
+  }
+
+  async findScreenShareSession(id: string): Promise<ScreenShareSessionRecord | null> {
+    const result = await this.pool.query<{
+      id: string;
+      instance_id: string;
+      group_id: string;
+      publisher_id: string;
+      status: 'active' | 'ended';
+      started_at: Date;
+      ended_at: Date | null;
+      end_reason: string | null;
+    }>(
+      `SELECT id, instance_id, group_id, publisher_id, status, started_at, ended_at, end_reason
+         FROM screen_share_sessions WHERE id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      instanceId: row.instance_id,
+      groupId: row.group_id,
+      publisherId: row.publisher_id,
+      status: row.status,
+      startedAt: row.started_at.getTime(),
+      endedAt: row.ended_at ? row.ended_at.getTime() : null,
+      endReason: row.end_reason,
+    };
   }
 }

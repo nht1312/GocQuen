@@ -1,11 +1,12 @@
 import { SEATS_BY_ID, userSeats } from '@virtual-cafe/shared';
 import { AppConfig } from '../src/config/app-config';
+import { MemoryStore } from '../src/storage/memory.store';
 import { InstanceManager } from '../src/world/instance-manager.service';
 import { ScreenShareService } from '../src/voice/screen-share.service';
 
 function makeServices(): { manager: InstanceManager; screen: ScreenShareService } {
   const manager = new InstanceManager(new AppConfig());
-  return { manager, screen: new ScreenShareService(manager) };
+  return { manager, screen: new ScreenShareService(manager, new MemoryStore()) };
 }
 
 let seq = 0;
@@ -333,5 +334,41 @@ describe('ScreenShareService — who may be told about a session', () => {
 
     const audience = screen.audienceFor(claimed.session);
     expect(audience).toEqual([...new Set(audience)]);
+  });
+});
+
+describe('ScreenShareService — audit trail', () => {
+  it('records the start and the end, without blocking the caller', async () => {
+    const manager = new InstanceManager(new AppConfig());
+    const store = new MemoryStore();
+    const screen = new ScreenShareService(manager, store);
+    const alice = join(manager, 'Alice');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+    // claim() is synchronous; the audit write lands on the microtask queue.
+    await Promise.resolve();
+
+    expect((await store.findScreenShareSession(claimed.session.id))?.status).toBe('active');
+
+    screen.release(alice.presence.userId, 'manual');
+    await Promise.resolve();
+
+    const ended = await store.findScreenShareSession(claimed.session.id);
+    expect(ended?.status).toBe('ended');
+    expect(ended?.endReason).toBe('manual');
+  });
+
+  it('still grants the slot when the audit write fails', () => {
+    const manager = new InstanceManager(new AppConfig());
+    const broken = new MemoryStore();
+    broken.recordScreenShareStart = () => Promise.reject(new Error('database on fire'));
+    const screen = new ScreenShareService(manager, broken);
+    const alice = join(manager, 'Alice');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+
+    // A database problem must not stop someone sharing their screen.
+    expect(screen.claim(alice.presence.userId).ok).toBe(true);
   });
 });

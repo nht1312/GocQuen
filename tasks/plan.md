@@ -86,10 +86,14 @@ Backend first, as the spec requires. Each task is one commit with tests.
       Sweeps wired to all four lifecycle points. *Done: 5 audience tests plus
       an end-to-end socket check. `participant-joined/left` deliberately
       omitted — see below.*
-- [ ] **6. Persistence** — `screen_share_sessions` metadata through the
+- [x] **6. Persistence** — `screen_share_sessions` metadata through the
       existing `Store` abstraction; memory + Postgres + schema.sql.
+      *Done: 8 tests. Audit writes are fire-and-forget so a database problem
+      cannot stop someone sharing. **The Postgres path is untested against a
+      live database** — no local Postgres and no Docker; only the in-memory
+      store is covered by tests.*
 - [ ] **7. Web client** — publish/subscribe via the LiveKit SDK, store state.
-- [ ] **8. Web UI** — floating panel, focus mode, the ten required states.
+- [ ] **8. Web UI** — floating panel, focus mode, the ten required states.\
 - [ ] **9. Errors and reconnection** — the cases in spec §10.
 - [ ] **10. Isolation tests** — cross-table access attempts in the smoke suite.
 - [ ] **11. Docs** — README, and amend `Virtual_Cafe_SPEC_v1.0.md` §2.3.
