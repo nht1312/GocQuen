@@ -5,12 +5,15 @@ import { InstanceManager } from '../src/world/instance-manager.service';
 import { MetricsService } from '../src/metrics/metrics.service';
 import { ScreenShareController } from '../src/voice/screen-share.controller';
 import { ScreenShareService } from '../src/voice/screen-share.service';
+import { VoiceService } from '../src/voice/voice.service';
 import type { AuthedRequest } from '../src/auth/session.guard';
 
 function makeController() {
-  const manager = new InstanceManager(new AppConfig());
+  const config = new AppConfig();
+  const manager = new InstanceManager(config);
   const screen = new ScreenShareService(manager, new MemoryStore());
-  const controller = new ScreenShareController(screen, new MetricsService(manager));
+  const voice = new VoiceService(config, manager, screen);
+  const controller = new ScreenShareController(screen, voice, new MetricsService(manager));
   return { manager, screen, controller };
 }
 

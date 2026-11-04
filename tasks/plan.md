@@ -22,13 +22,24 @@ work until that becomes `['microphone', 'screen_share']`.
 This is a permission widening on a security boundary, so it gets explicit
 sign-off before it is changed (task 3), not a silent edit.
 
-### 3. Per-table LiveKit rooms already exist — no new rooms needed
+### 3. Per-table LiveKit rooms already exist — but screen needs its OWN
 
-The spec asks for "a separate LiveKit room for each table, server-controlled".
-That is already how voice works: `cafe__<instanceId>__<groupId>`, built by
-`VoiceService.roomName()` from the server's own seat state. Media isolation is
-already structural: a token grants exactly one room, so another table's stream
-is not merely hidden, it is unreachable. Screen share reuses this room.
+~~Screen share reuses the voice room.~~ **Corrected during task 7.**
+
+Voice already uses `cafe__<instanceId>__<groupId>`, server-named from seat
+state, so isolation is structural. The mistake was concluding screen share
+could reuse it.
+
+The voice grant carries `canSubscribe: true`, and a voice token is only issued
+once someone has *deliberately* joined the conversation. Watching a screen is
+not conditional on joining — so reusing the room would have handed every
+viewer the table's live microphone audio without them ever choosing to listen,
+silently undoing the rule that hearing a table is a deliberate act.
+
+Screen therefore gets `cafe__<instanceId>__<groupId>__screen`. Two rooms keep
+the permissions independent: voice stays microphone-only and opt-in, and a
+screen token carries no microphone at all. This also let task 3's widening of
+the voice grant be reverted entirely.
 
 ### 4. Tokens are hand-minted, not from the LiveKit Server SDK
 
@@ -73,10 +84,9 @@ Backend first, as the spec requires. Each task is one commit with tests.
       disconnect. *Done: validity is derived on read (`live`/`activeAt`) so a
       stale slot cannot be observed, plus `releaseIfStale` for announcing it
       once. 6 tests.*
-- [x] **3. Token grant** — `screen_share` is added to `canPublishSources` only
-      for the user holding the publisher slot; everyone else keeps
-      `['microphone']`. *Done: 6 tests in `test/voice-token.spec.ts` that
-      verify the signed grant, not the intent.*
+- [x] **3. Token grant** — *superseded in task 7.* The voice grant is back to
+      `['microphone']` for everyone; screen publishing is granted in the
+      separate screen room instead.
 - [x] **4. REST** — `GET /voice/screen-share` (state) and `POST` start/stop,
       rate limited per caller. *Done: 11 tests. No table id in any route.
       The seated cross-table check over real HTTP is deferred to task 10,

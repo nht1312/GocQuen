@@ -8,10 +8,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { RATE_LIMITS, ScreenShareState } from '@virtual-cafe/shared';
+import { RATE_LIMITS, ScreenShareState, VoiceTokenResult } from '@virtual-cafe/shared';
 import { AuthedRequest, SessionGuard } from '../auth/session.guard';
 import { MetricsService } from '../metrics/metrics.service';
 import { ScreenShareService, ScreenShareSession } from './screen-share.service';
+import { VoiceService } from './voice.service';
 
 /**
  * Per-caller token bucket for the start/stop endpoints (spec §9).
@@ -60,8 +61,23 @@ export class ScreenShareController {
 
   constructor(
     private readonly screenShare: ScreenShareService,
+    private readonly voice: VoiceService,
     private readonly metrics: MetricsService,
   ) {}
+
+  /**
+   * A LiveKit token for the caller's own table's screen room.
+   *
+   * Separate from POST /voice/token: that one is for the conversation and
+   * requires having joined it, this one only requires being seated, because
+   * watching a screen is not the same as choosing to listen to a table.
+   */
+  @Post('token')
+  token(@Req() request: AuthedRequest): VoiceTokenResult {
+    const result = this.voice.issueScreenToken(request.session.sub, request.session.name);
+    if (result.token) this.metrics.increment('voice_tokens_issued_total');
+    return result;
+  }
 
   /**
    * The authoritative state, so a client that just connected — or reconnected
