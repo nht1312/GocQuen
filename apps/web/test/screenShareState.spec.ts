@@ -1,5 +1,10 @@
 import type { ScreenShareSessionInfo } from '@virtual-cafe/shared';
-import { deriveScreenShareView, needsScreenRoom } from '@/voice/screenShareState';
+import {
+  classifyScreenShareError,
+  deriveScreenShareView,
+  isScreenShareSupported,
+  needsScreenRoom,
+} from '@/voice/screenShareState';
 
 const SESSION: ScreenShareSessionInfo = {
   id: 'session-1',
@@ -133,5 +138,57 @@ describe('needsScreenRoom — when to hold a transport', () => {
     expect(needsScreenRoom(view({ local: 'reconnecting', session: SESSION, selfId: 'bob' }))).toBe(
       true,
     );
+  });
+});
+
+describe('isScreenShareSupported — spec section 10, unsupported browser', () => {
+  it('accepts a browser that offers getDisplayMedia', () => {
+    expect(isScreenShareSupported({ getDisplayMedia: () => undefined })).toBe(true);
+  });
+
+  it('rejects a browser without it', () => {
+    expect(isScreenShareSupported({})).toBe(false);
+  });
+
+  it('rejects a context with no media devices at all', () => {
+    // Server rendering, and older or locked-down mobile browsers.
+    expect(isScreenShareSupported(undefined)).toBe(false);
+    expect(isScreenShareSupported(null)).toBe(false);
+  });
+});
+
+describe('classifyScreenShareError — spec section 10', () => {
+  it('treats a refused or cancelled picker as denied, without an alarming toast', () => {
+    const error = new DOMException('Permission denied', 'NotAllowedError');
+    const result = classifyScreenShareError(error);
+    expect(result.local).toBe('denied');
+    // Chrome raises NotAllowedError both for a refusal and for simply closing
+    // the picker, so the wording has to cover both without accusing anyone.
+    expect(result.toast).toBe(false);
+  });
+
+  it('treats an aborted picker as a quiet no-op', () => {
+    const result = classifyScreenShareError(new DOMException('Aborted', 'AbortError'));
+    expect(result.local).toBe('none');
+    expect(result.toast).toBe(false);
+  });
+
+  it('treats a missing source as a quiet no-op', () => {
+    const result = classifyScreenShareError(new DOMException('No source', 'NotFoundError'));
+    expect(result.local).toBe('none');
+    expect(result.toast).toBe(false);
+  });
+
+  it('reports a transport failure loudly, because the user can retry', () => {
+    const result = classifyScreenShareError(new Error('could not connect to room'));
+    expect(result.local).toBe('error');
+    expect(result.toast).toBe(true);
+    expect(result.message).not.toBe('');
+  });
+
+  it('has a message for something it does not recognise', () => {
+    const result = classifyScreenShareError('what even is this');
+    expect(result.local).toBe('error');
+    expect(result.message).not.toBe('');
   });
 });

@@ -113,7 +113,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       (socket lifecycle, token fetch, transport driven by `needsScreenRoom`).
       5 more tests. **Not yet verified with a real screen capture** — see
       below.*\
-- [ ] **9. Errors and reconnection** — the cases in spec §10.
+- [x] **9. Errors and reconnection** — the cases in spec §10.
+      *Done: capability check for unsupported browsers, and one classifier
+      deciding local state / message / whether to interrupt. 8 more tests.
+      Also fixed an English string missed by the translation pass.*
 - [ ] **10. Isolation tests** — cross-table access attempts in the smoke suite.
 - [ ] **11. Docs** — README, and amend `Virtual_Cafe_SPEC_v1.0.md` §2.3.
 

@@ -155,3 +155,61 @@ export function needsScreenRoom(view: ScreenShareView): boolean {
     view.phase === 'reconnecting'
   );
 }
+
+/**
+ * Whether this browser can capture a screen at all (spec §10).
+ *
+ * Checked before opening the picker so an unsupported browser gets a plain
+ * explanation rather than an exception from deep inside the SDK. Takes the
+ * media devices object rather than reading `navigator` directly, so the rule
+ * is testable and so it is safe during server rendering, where there is no
+ * navigator to read.
+ */
+export function isScreenShareSupported(
+  mediaDevices: { getDisplayMedia?: unknown } | null | undefined,
+): boolean {
+  return typeof mediaDevices?.getDisplayMedia === 'function';
+}
+
+export interface ScreenShareFailure {
+  local: LocalScreenShareState;
+  message: string;
+  /** Whether this is worth interrupting someone with. */
+  toast: boolean;
+}
+
+/**
+ * Turn whatever went wrong into something the café can say (spec §10).
+ *
+ * The distinction that matters is whether the person did something
+ * deliberate. Closing the source picker is not an error and must not raise a
+ * toast; losing the transport is, because retrying may well work.
+ *
+ * Note that Chrome raises `NotAllowedError` both when permission is refused
+ * and when the picker is simply closed, so the two cannot be told apart. The
+ * wording therefore covers both without accusing anyone of refusing.
+ */
+export function classifyScreenShareError(error: unknown): ScreenShareFailure {
+  if (error instanceof DOMException) {
+    if (error.name === 'NotAllowedError') {
+      return {
+        local: 'denied',
+        message: 'Chưa chia sẻ được màn hình. Hãy thử lại và chọn một màn hình để chia sẻ.',
+        toast: false,
+      };
+    }
+    if (error.name === 'AbortError' || error.name === 'NotFoundError') {
+      // Nothing was chosen. Saying anything at all would be noise.
+      return { local: 'none', message: '', toast: false };
+    }
+  }
+
+  return {
+    local: 'error',
+    message:
+      error instanceof Error && error.message
+        ? error.message
+        : 'Không kết nối được tới phòng chia sẻ màn hình. Hãy thử lại.',
+    toast: true,
+  };
+}

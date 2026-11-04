@@ -18,7 +18,12 @@ import { createSocket, type Socket } from '@/lib/socket';
 import { readLocal, writeLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { VoiceClient } from '@/voice/voiceClient';
-import { deriveScreenShareView, needsScreenRoom } from '@/voice/screenShareState';
+import {
+  classifyScreenShareError,
+  deriveScreenShareView,
+  isScreenShareSupported,
+  needsScreenRoom,
+} from '@/voice/screenShareState';
 import { ScreenShareClient } from '@/voice/screenShareClient';
 
 interface StoredSession {
@@ -170,7 +175,7 @@ export function useCafe() {
         socket.emit(CLIENT_EVENTS.screenShareRequestState, {});
       });
       socket.io.on('reconnect_attempt', () => {
-        store.getState().setPhase('reconnecting', 'Reconnecting to the café…');
+        store.getState().setPhase('reconnecting', 'Đang kết nối lại tới quán…');
       });
       socket.on('disconnect', (reason: string) => {
         if (reason === 'io client disconnect') return;
@@ -413,6 +418,11 @@ export function useCafe() {
     const session = state.session;
     if (!session) return;
 
+    if (!isScreenShareSupported(globalThis.navigator?.mediaDevices)) {
+      state.showToast('Trình duyệt này không hỗ trợ chia sẻ màn hình', 'error');
+      return;
+    }
+
     state.setScreenShareLocal('selecting');
     try {
       const claimed = await api.screenShareStart(session.token);
@@ -433,15 +443,12 @@ export function useCafe() {
       await client.startPublishing();
       store.getState().setScreenShareLocal('none');
     } catch (error) {
-      // A cancelled picker and a refused permission both land here; release
-      // the slot so the table is not blocked by a share that never began.
-      const denied = error instanceof DOMException && error.name === 'NotAllowedError';
-      store.getState().setScreenShareLocal(denied ? 'denied' : 'none');
-      if (!denied) {
-        store
-          .getState()
-          .showToast(error instanceof Error ? error.message : 'Không thể chia sẻ màn hình', 'error');
-      }
+      // A cancelled picker, a refused permission and a dead transport all
+      // land here and deserve different treatment. Whatever it was, release
+      // the slot so an attempt that never began cannot block the table.
+      const failure = classifyScreenShareError(error);
+      store.getState().setScreenShareLocal(failure.local);
+      if (failure.toast) store.getState().showToast(failure.message, 'error');
       await api.screenShareStop(session.token).catch(() => undefined);
       await screenRef.current?.disconnect();
       setScreenVideo(null);
