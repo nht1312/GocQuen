@@ -121,7 +121,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       *Done: 10 checks against a running server, 26/26. Mutation-verified —
       leaking sessions across tables makes the suite fail. This closes the gap
       deferred from task 4.*
-- [ ] **11. Docs** — README, and amend `Virtual_Cafe_SPEC_v1.0.md` §2.3.
+- [x] **11. Docs** — README section (how it works, the four isolation
+      layers, the endpoints, how to try it) and `Virtual_Cafe_SPEC_v1.0.md`
+      §2.3 amended so the spec no longer contradicts shipped code. Every
+      documented endpoint was checked against the running server.
 
 ## How table-level authorization is enforced
 

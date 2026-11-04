@@ -207,6 +207,63 @@ is used verbatim — anything not listed is refused, including localhost.
   managed providers. `strict` verifies against the system CA store.
 - **Never commit `.env`.** It is gitignored; `.env.example` is the template.
 
+## Chia sẻ màn hình theo bàn
+
+Someone sitting at a table can share their screen with the people at that
+same table. It is a collaboration feature, not a meeting: there is no
+café-wide broadcast and no way to watch a table you are not sitting at.
+
+- One publisher per table. The slot is taken synchronously, so two people
+  pressing the button together cannot both win it.
+- Viewing requires only that you are **seated** at the table. Joining the
+  voice conversation is a separate, deliberate act.
+- The share ends by itself when the publisher stops, stands up, changes
+  table, leaves, disconnects, or ends capture with the browser's own button.
+- Metadata only is persisted — who shared, at which table, for how long.
+  **No screen content is ever stored or recorded.**
+
+### How a table's screen is kept private
+
+Four independent layers, none of which is the UI:
+
+1. **Derivation** — the table comes from the seat the *server* says you
+   occupy. No endpoint, body or socket payload accepts a table id, so there
+   is no parameter to tamper with.
+2. **A separate room per table** — media travels through
+   `cafe__<instance>__<group>__screen`, named by the server. A token grants
+   exactly one room, so another table's stream is unreachable rather than
+   merely hidden.
+3. **A room apart from voice** — the screen room is deliberately *not* the
+   voice room. A voice token carries the right to hear everyone at the table,
+   and watching a screen must not quietly grant that, so a screen token
+   carries no microphone at all.
+4. **Publish scoping** — `screen_share` appears in a token only for whoever
+   holds the slot. A viewer who modifies their client still cannot publish.
+
+The smoke suite proves this against a running server: `npm run smoke` seats
+two guests at different tables and checks that the second is not told a
+session exists, cannot stop it, never receives the start event, and receives
+a token naming a different room entirely.
+
+**What this cannot do:** stop someone who is legitimately at your table from
+screenshotting or recording what they see with other software. Share
+accordingly.
+
+### Trying it
+
+Screen sharing needs the `LIVEKIT_*` credentials (see *Enabling voice*) — the
+same SFU carries both. Then open the café in two browser windows, sit both at
+the same table, and press **Chia sẻ màn hình** in one.
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /voice/screen-share` | The session at your table, or none |
+| `POST /voice/screen-share/start` | Take the table's slot |
+| `POST /voice/screen-share/stop` | Release it |
+| `POST /voice/screen-share/token` | A token for your table's screen room |
+
+None of them takes a table id.
+
 ### Other commands
 
 | Command | What it does |

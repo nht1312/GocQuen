@@ -89,7 +89,7 @@ tương tác xã hội.
 
 ## 2.3. Không thuộc MVP
 
--   Video call, chia sẻ màn hình và họp trực tuyến.
+-   Video call và họp trực tuyến.
 -   Hệ thống bạn bè, follow, newsfeed hoặc mạng xã hội.
 -   Nhiều loại quán/cửa hàng và hệ thống kinh tế trong game.
 -   Marketplace, mua bán vật phẩm hoặc thanh toán trong không gian.
@@ -98,6 +98,16 @@ tương tác xã hội.
 -   Mobile app native. Giao diện web cần responsive ở mức cơ bản, nhưng
     trải nghiệm tương tác chính ưu tiên desktop.
 -   Ghi âm hoặc lưu trữ hội thoại người dùng.
+
+> **Sửa đổi sau v1.0 --- Chia sẻ màn hình theo bàn.** Bản v1.0 xếp "chia sẻ
+> màn hình" vào phần ngoài MVP. Hạng mục này đã được đưa trở lại phạm vi và
+> triển khai theo một spec riêng, với giới hạn chặt chẽ: chỉ những người
+> **ngồi cùng một bàn** mới xem được, mỗi bàn chỉ có **một người chia sẻ** tại
+> một thời điểm, và luồng hình đi qua một phòng LiveKit **riêng của bàn đó**,
+> tách khỏi phòng thoại. Phần còn lại của mục 2.3 --- video call, họp trực
+> tuyến, ghi âm hay lưu trữ nội dung --- vẫn nằm ngoài phạm vi.
+>
+> Xem `README.md` (mục "Chia sẻ màn hình theo bàn") và `tasks/plan.md`.
 
 ------------------------------------------------------------------------
 
