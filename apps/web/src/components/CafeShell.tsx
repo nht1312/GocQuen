@@ -11,6 +11,7 @@ import { ChatPanel } from './ChatPanel';
 import { ConnectionBanner, InteractionPrompt, Toasts } from './Overlays';
 import { Onboarding } from './Onboarding';
 import { PeoplePanel } from './PeoplePanel';
+import { ScreenSharePanel } from './ScreenSharePanel';
 import { StatusBar } from './StatusBar';
 
 /** The café screen (SPEC 10.1): canvas in the middle, collapsible panels around it. */
@@ -87,6 +88,13 @@ export function CafeShell() {
               onJoinVoice={() => void controls.joinVoice()}
               onLeaveVoice={() => void controls.leaveVoice()}
               onEnableAudio={() => void controls.ensureAudio()}
+            />
+          </div>
+          <div className="pointer-events-auto">
+            <ScreenSharePanel
+              video={controls.screenVideo}
+              onStart={() => void controls.startScreenShare()}
+              onStop={() => void controls.stopScreenShare()}
             />
           </div>
           <div className="pointer-events-auto">

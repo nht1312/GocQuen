@@ -108,7 +108,11 @@ Backend first, as the spec requires. Each task is one commit with tests.
       the web workspace — it had no test runner at all. The LiveKit layer is
       not unit tested: mocking an SFU would produce tests that pass while
       production breaks, so it is verified in a real browser in task 8/9.*
-- [ ] **8. Web UI** — floating panel, focus mode, the ten required states.\
+- [x] **8. Web UI** — floating panel, focus mode, the ten required states.
+      *Done: `ScreenSharePanel.tsx` plus the orchestration in `useCafe`
+      (socket lifecycle, token fetch, transport driven by `needsScreenRoom`).
+      5 more tests. **Not yet verified with a real screen capture** — see
+      below.*\
 - [ ] **9. Errors and reconnection** — the cases in spec §10.
 - [ ] **10. Isolation tests** — cross-table access attempts in the smoke suite.
 - [ ] **11. Docs** — README, and amend `Virtual_Cafe_SPEC_v1.0.md` §2.3.
@@ -135,3 +139,20 @@ instance, and the client derives table membership from that. A parallel set of
 viewer events would be a second membership system telling the same story, and
 the brief says not to introduce duplicates. Worth revisiting only if the
 publisher needs a viewer count, which no acceptance criterion asks for.
+
+## Verified vs not verified
+
+Proven by tests: the authorisation rules, the ten-state derivation, when a
+transport should exist, the REST and socket boundaries, and the audit trail.
+
+Proven by running it: the server boots, routes and handlers register, the
+unseated refusal returns the right code over both HTTP and the socket, and
+16/16 smoke checks pass.
+
+**Not proven at all yet: a screen actually appearing on another person's
+screen.** That needs two browsers, a granted `getDisplayMedia` permission and
+a live LiveKit room, which headless Chrome in this environment cannot supply —
+screen capture requires a real user gesture against a real display. The
+publish/subscribe path is therefore written-but-unexercised. Task 10 closes
+as much of this as automation can; the final confirmation needs a human with
+two browser windows.

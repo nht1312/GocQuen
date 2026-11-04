@@ -1,12 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CLIENT_EVENTS,
   HEARTBEAT_INTERVAL_MS,
   ModerationReason,
   PlayerStatus,
+  SERVER_EVENTS,
   STORAGE_KEYS,
+  type ScreenShareFailedEvent,
+  type ScreenShareStartedEvent,
 } from '@virtual-cafe/shared';
 import { CafeAudioEngine } from '@/audio/engine';
 import { CafeEngine } from '@/game/engine';
@@ -15,6 +18,8 @@ import { createSocket, type Socket } from '@/lib/socket';
 import { readLocal, writeLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { VoiceClient } from '@/voice/voiceClient';
+import { deriveScreenShareView, needsScreenRoom } from '@/voice/screenShareState';
+import { ScreenShareClient } from '@/voice/screenShareClient';
 
 interface StoredSession {
   token: string;
@@ -31,6 +36,8 @@ export function useCafe() {
   const engineRef = useRef<CafeEngine | null>(null);
   const audioRef = useRef<CafeAudioEngine | null>(null);
   const voiceRef = useRef<VoiceClient | null>(null);
+  const screenRef = useRef<ScreenShareClient | null>(null);
+  const [screenVideo, setScreenVideo] = useState<HTMLVideoElement | null>(null);
 
   const store = useCafeStore;
 
@@ -134,8 +141,33 @@ export function useCafe() {
       });
       engineRef.current = engine;
 
+      socket.on(SERVER_EVENTS.screenShareStarted, (payload: ScreenShareStartedEvent) => {
+        store.getState().setScreenShare({
+          id: payload.sessionId,
+          groupId: payload.groupId,
+          publisherId: payload.publisherId,
+          publisherName: payload.publisherName,
+          startedAt: payload.startedAt,
+        });
+      });
+
+      socket.on(SERVER_EVENTS.screenShareStopped, () => {
+        const state = store.getState();
+        state.setScreenShare(null);
+        state.setScreenShareLocal('none');
+        state.setScreenShareFocused(false);
+      });
+
+      socket.on(SERVER_EVENTS.screenShareFailed, (payload: ScreenShareFailedEvent) => {
+        store.getState().setScreenShareLocal('none');
+        store.getState().showToast(payload.message, 'error');
+      });
+
       socket.on('connect', () => {
         socket.emit(CLIENT_EVENTS.worldJoin, {});
+        // Ask for state rather than waiting for an event: a session may have
+        // started before we connected, or while we were reconnecting.
+        socket.emit(CLIENT_EVENTS.screenShareRequestState, {});
       });
       socket.io.on('reconnect_attempt', () => {
         store.getState().setPhase('reconnecting', 'Reconnecting to the café…');
@@ -339,8 +371,151 @@ export function useCafe() {
     store.getState().reset();
   }, [store]);
 
+  /**
+   * Create the transport on first use and reuse it afterwards, so a second
+   * viewer event cannot open a duplicate subscription to the same room.
+   */
+  const ensureScreenClient = useCallback((): ScreenShareClient => {
+    if (screenRef.current) return screenRef.current;
+    const client = new ScreenShareClient({
+      onTrack: (element) => setScreenVideo(element),
+      onTrackGone: () => setScreenVideo(null),
+      onLocalCaptureEnded: () => {
+        // The browser's own "Stop sharing" button ends capture without
+        // touching our UI, so the session has to be released from here or the
+        // table would be left believing a dead share is still running.
+        const session = store.getState().session;
+        void screenRef.current?.disconnect();
+        setScreenVideo(null);
+        const state = store.getState();
+        state.setScreenShare(null);
+        state.setScreenShareLocal('none');
+        state.setScreenShareFocused(false);
+        if (session) void api.screenShareStop(session.token).catch(() => undefined);
+      },
+      onDisconnected: () => setScreenVideo(null),
+      onReconnecting: () => store.getState().setScreenShareLocal('reconnecting'),
+      onReconnected: () => store.getState().setScreenShareLocal('none'),
+    });
+    screenRef.current = client;
+    return client;
+  }, []);
+
+  /**
+   * Start sharing: open the browser's picker, then tell the server.
+   *
+   * The server is asked only after the user has actually chosen a source, so
+   * a cancelled picker never leaves a session registered at the table with
+   * nothing behind it.
+   */
+  const startScreenShare = useCallback(async () => {
+    const state = store.getState();
+    const session = state.session;
+    if (!session) return;
+
+    state.setScreenShareLocal('selecting');
+    try {
+      const claimed = await api.screenShareStart(session.token);
+      if (!claimed.active) {
+        state.setScreenShareLocal('none');
+        state.showToast(claimed.reason ?? 'Không thể chia sẻ màn hình', 'error');
+        return;
+      }
+
+      state.setScreenShareLocal('connecting');
+      const grant = await api.screenShareToken(session.token);
+      if (!grant.token || !grant.url) {
+        throw new Error(grant.reason ?? 'Không lấy được quyền chia sẻ màn hình');
+      }
+
+      const client = ensureScreenClient();
+      await client.connect(grant.url, grant.token);
+      await client.startPublishing();
+      store.getState().setScreenShareLocal('none');
+    } catch (error) {
+      // A cancelled picker and a refused permission both land here; release
+      // the slot so the table is not blocked by a share that never began.
+      const denied = error instanceof DOMException && error.name === 'NotAllowedError';
+      store.getState().setScreenShareLocal(denied ? 'denied' : 'none');
+      if (!denied) {
+        store
+          .getState()
+          .showToast(error instanceof Error ? error.message : 'Không thể chia sẻ màn hình', 'error');
+      }
+      await api.screenShareStop(session.token).catch(() => undefined);
+      await screenRef.current?.disconnect();
+      setScreenVideo(null);
+    }
+  }, [ensureScreenClient]);
+
+  /**
+   * Keep the transport in step with what the view says.
+   *
+   * Viewers never call connect explicitly: when the server says a session
+   * exists at their table they join, and when it ends — or they stand up —
+   * they drop. Driving it from `needsScreenRoom` means the subscription can
+   * never outlive the entitlement that justified it.
+   */
+  const screenSession = useCafeStore((state) => state.screenShare);
+  const screenLocal = useCafeStore((state) => state.screenShareLocal);
+  const selfSeatId = useCafeStore((state) => state.self?.seatId ?? null);
+  const selfUserId = useCafeStore((state) => state.self?.userId ?? null);
+
+  useEffect(() => {
+    const view = deriveScreenShareView({
+      session: screenSession,
+      selfId: selfUserId,
+      seated: Boolean(selfSeatId),
+      local: screenLocal,
+    });
+
+    if (!needsScreenRoom(view)) {
+      if (screenRef.current?.isConnected) {
+        void screenRef.current.disconnect();
+        setScreenVideo(null);
+      }
+      return;
+    }
+
+    // The publisher already connected in startScreenShare.
+    if (view.isPublisher || screenRef.current?.isConnected) return;
+
+    const session = store.getState().session;
+    if (!session) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const grant = await api.screenShareToken(session.token);
+        if (cancelled || !grant.token || !grant.url) return;
+        await ensureScreenClient().connect(grant.url, grant.token);
+      } catch {
+        if (!cancelled) store.getState().setScreenShareLocal('error');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [screenSession, screenLocal, selfSeatId, selfUserId, ensureScreenClient]);
+
+  const stopScreenShare = useCallback(async () => {
+    const session = store.getState().session;
+    await screenRef.current?.stopPublishing().catch(() => undefined);
+    await screenRef.current?.disconnect();
+    setScreenVideo(null);
+    if (session) await api.screenShareStop(session.token).catch(() => undefined);
+    const state = store.getState();
+    state.setScreenShare(null);
+    state.setScreenShareLocal('none');
+    state.setScreenShareFocused(false);
+  }, []);
+
   return {
     engineRef,
+    screenVideo,
+    startScreenShare,
+    stopScreenShare,
     ensureAudio,
     playUi,
     setStatus,

@@ -1,5 +1,5 @@
 import type { ScreenShareSessionInfo } from '@virtual-cafe/shared';
-import { deriveScreenShareView } from '@/voice/screenShareState';
+import { deriveScreenShareView, needsScreenRoom } from '@/voice/screenShareState';
 
 const SESSION: ScreenShareSessionInfo = {
   id: 'session-1',
@@ -105,5 +105,33 @@ describe('deriveScreenShareView — leaving the table', () => {
     expect(v.phase).toBe('idle');
     expect(v.session).toBeNull();
     expect(v.canStart).toBe(false);
+  });
+});
+
+describe('needsScreenRoom — when to hold a transport', () => {
+  it('connects while publishing or watching', () => {
+    expect(needsScreenRoom(view({ session: SESSION, selfId: 'alice' }))).toBe(true);
+    expect(needsScreenRoom(view({ session: SESSION, selfId: 'bob' }))).toBe(true);
+  });
+
+  it('connects while starting up, before the server has confirmed', () => {
+    expect(needsScreenRoom(view({ local: 'connecting' }))).toBe(true);
+  });
+
+  it('does not connect when nothing is happening', () => {
+    expect(needsScreenRoom(view())).toBe(false);
+    expect(needsScreenRoom(view({ local: 'selecting' }))).toBe(false);
+  });
+
+  it('drops the transport the moment we leave the table', () => {
+    // Otherwise a stale subscription keeps feeding a screen we may no longer
+    // be entitled to see.
+    expect(needsScreenRoom(view({ session: SESSION, selfId: 'bob', seated: false }))).toBe(false);
+  });
+
+  it('keeps the transport while reconnecting so it can recover', () => {
+    expect(needsScreenRoom(view({ local: 'reconnecting', session: SESSION, selfId: 'bob' }))).toBe(
+      true,
+    );
   });
 });

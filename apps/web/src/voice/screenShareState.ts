@@ -134,3 +134,24 @@ export function deriveScreenShareView(input: ScreenShareInput): ScreenShareView 
 
   return { phase: 'idle', session: null, isPublisher: false, canStart: true, message: null };
 }
+
+/**
+ * Whether this client should currently hold a connection to the table's
+ * screen room.
+ *
+ * Derived from the view rather than tracked separately, so the transport can
+ * never disagree with what the UI is showing. In particular `idle` is false:
+ * standing up or the publisher stopping must drop the subscription rather
+ * than leave it feeding a screen we may no longer be entitled to see.
+ *
+ * `reconnecting` is true because the point of reconnecting is to recover the
+ * same connection, not to tear it down.
+ */
+export function needsScreenRoom(view: ScreenShareView): boolean {
+  return (
+    view.phase === 'publishing' ||
+    view.phase === 'watching' ||
+    view.phase === 'connecting' ||
+    view.phase === 'reconnecting'
+  );
+}
