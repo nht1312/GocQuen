@@ -9,6 +9,7 @@ import { MetricsService } from './metrics/metrics.service';
 import { ModerationController } from './moderation/moderation.controller';
 import { RealtimeGateway } from './realtime/realtime.gateway';
 import { StorageModule } from './storage/storage.module';
+import { ScreenShareService } from './voice/screen-share.service';
 import { VoiceController } from './voice/voice.controller';
 import { VoiceService } from './voice/voice.service';
 import { InstanceManager } from './world/instance-manager.service';
@@ -27,6 +28,7 @@ import { InstanceManager } from './world/instance-manager.service';
     SessionService,
     SessionGuard,
     InstanceManager,
+    ScreenShareService,
     VoiceService,
     MetricsService,
     RealtimeGateway,

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { VoiceTokenResult } from '@virtual-cafe/shared';
 import { AppConfig } from '../config/app-config';
 import { InstanceManager } from '../world/instance-manager.service';
+import { ScreenShareService } from './screen-share.service';
 
 /**
  * Voice access control (SPEC 6.2, 6.3, 14.1).
@@ -22,6 +23,7 @@ export class VoiceService {
   constructor(
     private readonly config: AppConfig,
     private readonly instances: InstanceManager,
+    private readonly screenShare: ScreenShareService,
   ) {}
 
   static roomName(instanceId: string, groupId: string): string {
@@ -72,9 +74,18 @@ export class VoiceService {
           canPublish: true,
           canSubscribe: true,
           canPublishData: false,
-          // Voice only (SPEC 2.3). Enforced in the grant, not just in the
-          // client: the token cannot publish a camera or a screen share.
-          canPublishSources: ['microphone'],
+          // What this token may put on the wire, decided here rather than in
+          // the client. A camera is never permitted. `screen_share` is added
+          // only for whoever currently holds this table's screen-share slot,
+          // so a viewer who modifies their client still cannot publish a
+          // screen, and a second person at the table cannot talk over an
+          // existing share. The slot is released the moment they stand up,
+          // change table, leave or disconnect, and tokens are short-lived
+          // (VOICE_TOKEN_TTL_SECONDS), so the permission cannot outlive it by
+          // more than one token lifetime.
+          canPublishSources: this.screenShare.mayPublishScreen(userId)
+            ? ['microphone', 'screen_share']
+            : ['microphone'],
           // No recording, ever, by default (SPEC 14.2). `roomRecord` is the
           // documented grant field; the older `recorder` key is ignored.
           roomRecord: false,

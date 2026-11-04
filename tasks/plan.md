@@ -73,9 +73,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       disconnect. *Done: validity is derived on read (`live`/`activeAt`) so a
       stale slot cannot be observed, plus `releaseIfStale` for announcing it
       once. 6 tests.*
-- [ ] **3. Token grant** — add `screen_share` to `canPublishSources`, but only
-      for the user holding the publisher slot. Viewers get subscribe-only.
-      *(needs sign-off — see finding 2)*
+- [x] **3. Token grant** — `screen_share` is added to `canPublishSources` only
+      for the user holding the publisher slot; everyone else keeps
+      `['microphone']`. *Done: 6 tests in `test/voice-token.spec.ts` that
+      verify the signed grant, not the intent.*
 - [ ] **4. REST** — `GET /voice/screen-share` (state) and `POST` start/stop,
       rate limited.
 - [ ] **5. Socket events** — `screen-share:started|stopped|failed`, broadcast
