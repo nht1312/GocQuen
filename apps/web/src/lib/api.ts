@@ -3,6 +3,7 @@ import type {
   GuestSession,
   JoinResult,
   ModerationReason,
+  ScreenShareState,
   VoiceTokenResult,
 } from '@virtual-cafe/shared';
 
@@ -64,6 +65,22 @@ export const api = {
 
   voiceToken: (token: string) =>
     request<VoiceTokenResult>('/voice/token', { method: 'POST' }, token),
+
+  /**
+   * Screen sharing. The table is never sent — the server reads it from the
+   * seat it says you occupy, so there is no id here to tamper with.
+   */
+  screenShareState: (token: string) =>
+    request<ScreenShareState>('/voice/screen-share', {}, token),
+
+  screenShareToken: (token: string) =>
+    request<VoiceTokenResult>('/voice/screen-share/token', { method: 'POST' }, token),
+
+  screenShareStart: (token: string) =>
+    request<ScreenShareState>('/voice/screen-share/start', { method: 'POST' }, token),
+
+  screenShareStop: (token: string) =>
+    request<ScreenShareState>('/voice/screen-share/stop', { method: 'POST' }, token),
 
   report: (
     token: string,

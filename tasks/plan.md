@@ -102,7 +102,12 @@ Backend first, as the spec requires. Each task is one commit with tests.
       cannot stop someone sharing. **The Postgres path is untested against a
       live database** — no local Postgres and no Docker; only the in-memory
       store is covered by tests.*
-- [ ] **7. Web client** — publish/subscribe via the LiveKit SDK, store state.
+- [x] **7. Web client** — publish/subscribe via the LiveKit SDK, store state.
+      *Done: `screenShareState.ts` (pure, 12 tests), `screenShareClient.ts`
+      (LiveKit, integration code), API methods, store fields. Added jest to
+      the web workspace — it had no test runner at all. The LiveKit layer is
+      not unit tested: mocking an SFU would produce tests that pass while
+      production breaks, so it is verified in a real browser in task 8/9.*
 - [ ] **8. Web UI** — floating panel, focus mode, the ten required states.\
 - [ ] **9. Errors and reconnection** — the cases in spec §10.
 - [ ] **10. Isolation tests** — cross-table access attempts in the smoke suite.

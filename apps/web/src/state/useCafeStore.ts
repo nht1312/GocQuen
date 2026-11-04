@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import type { LocalScreenShareState } from '@/voice/screenShareState';
 import {
   AudioSettings,
   ChatMessage,
@@ -9,6 +10,7 @@ import {
   NpcPresence,
   PlayerPresence,
   PlayerStatus,
+  ScreenShareSessionInfo,
   STORAGE_KEYS,
   zoneLabelAt,
 } from '@virtual-cafe/shared';
@@ -50,6 +52,12 @@ interface CafeState {
 
   voiceAvailable: boolean;
   voicePhase: VoicePhase;
+  /** The session the server says exists at our table, or null. */
+  screenShare: ScreenShareSessionInfo | null;
+  /** What this browser is doing, which the server cannot know. */
+  screenShareLocal: LocalScreenShareState;
+  /** Focus mode expands the shared screen over the café. */
+  screenShareFocused: boolean;
   voiceGroupId: string | null;
   voiceMembers: string[];
   micOn: boolean;
@@ -93,6 +101,9 @@ interface CafeState {
   setNearbySeat: (seatId: string | null) => void;
 
   setVoicePhase: (phase: VoicePhase) => void;
+  setScreenShare: (session: ScreenShareSessionInfo | null) => void;
+  setScreenShareLocal: (local: LocalScreenShareState) => void;
+  setScreenShareFocused: (focused: boolean) => void;
   setVoiceGroup: (groupId: string | null, members: string[]) => void;
   setMic: (on: boolean, error?: string | null) => void;
 
@@ -131,6 +142,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
 
   voiceAvailable: false,
   voicePhase: 'off',
+  screenShare: null,
+  screenShareLocal: 'none',
+  screenShareFocused: false,
   voiceGroupId: null,
   voiceMembers: [],
   micOn: false,
@@ -200,6 +214,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
     set((state) => (state.nearbySeatId === seatId ? {} : { nearbySeatId: seatId })),
 
   setVoicePhase: (voicePhase) => set({ voicePhase }),
+  setScreenShare: (screenShare) => set({ screenShare }),
+  setScreenShareLocal: (screenShareLocal) => set({ screenShareLocal }),
+  setScreenShareFocused: (screenShareFocused) => set({ screenShareFocused }),
   setVoiceGroup: (voiceGroupId, voiceMembers) => set({ voiceGroupId, voiceMembers }),
   setMic: (micOn, micError = null) => set({ micOn, micError }),
 
@@ -293,6 +310,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
       voiceGroupId: null,
       voiceMembers: [],
       voicePhase: 'off',
+      screenShare: null,
+      screenShareLocal: 'none',
+      screenShareFocused: false,
       micOn: false,
       instanceId: null,
     }),
