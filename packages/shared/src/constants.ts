@@ -40,6 +40,10 @@ export const RATE_LIMITS = {
   'voice:leave': { capacity: 6, refillPerSecond: 1 },
   'voice:state': { capacity: 10, refillPerSecond: 3 },
   'chat:send': { capacity: 6, refillPerSecond: 1 },
+  // Starting and stopping are cheap for the server but expensive for the
+  // table, which sees a panel appear and vanish each time.
+  'screen-share:start': { capacity: 5, refillPerSecond: 0.2 },
+  'screen-share:stop': { capacity: 5, refillPerSecond: 0.2 },
   'session:ping': { capacity: 6, refillPerSecond: 1 },
 } as const;
 

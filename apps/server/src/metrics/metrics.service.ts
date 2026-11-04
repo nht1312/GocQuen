@@ -15,7 +15,10 @@ type CounterName =
   | 'events_rejected_total'
   | 'events_rate_limited_total'
   | 'moderation_reports_total'
-  | 'user_blocks_total';
+  | 'user_blocks_total'
+  | 'screen_share_starts_total'
+  | 'screen_share_stops_total'
+  | 'screen_share_rejections_total';
 
 /**
  * Operational metrics (SPEC 16.4). Deliberately counts and latencies only —

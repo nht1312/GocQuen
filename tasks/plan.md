@@ -77,8 +77,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       for the user holding the publisher slot; everyone else keeps
       `['microphone']`. *Done: 6 tests in `test/voice-token.spec.ts` that
       verify the signed grant, not the intent.*
-- [ ] **4. REST** — `GET /voice/screen-share` (state) and `POST` start/stop,
-      rate limited.
+- [x] **4. REST** — `GET /voice/screen-share` (state) and `POST` start/stop,
+      rate limited per caller. *Done: 11 tests. No table id in any route.
+      The seated cross-table check over real HTTP is deferred to task 10,
+      where the smoke suite's pathfinding already exists.*
 - [ ] **5. Socket events** — `screen-share:started|stopped|failed`, broadcast
       to the publisher's table only, never carrying tokens.
 - [ ] **6. Persistence** — `screen_share_sessions` metadata through the

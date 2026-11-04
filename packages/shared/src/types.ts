@@ -123,6 +123,31 @@ export interface JoinResult {
   voiceAvailable: boolean;
 }
 
+/** A screen-share session as it is shown to members of that table. */
+export interface ScreenShareSessionInfo {
+  id: string;
+  /** The table. Server-derived; only ever sent to that table's members. */
+  groupId: string;
+  publisherId: string;
+  publisherName: string;
+  startedAt: number;
+}
+
+/**
+ * What the caller is allowed to know about screen sharing at their own table.
+ *
+ * Someone sitting elsewhere sees `active: false` rather than a refusal: that
+ * another table is sharing is itself not their business.
+ */
+export interface ScreenShareState {
+  active: boolean;
+  session: ScreenShareSessionInfo | null;
+  /** Whether this caller could start sharing right now. */
+  canPublish: boolean;
+  /** Why not, when `canPublish` is false. */
+  reason?: string;
+}
+
 export interface VoiceTokenResult {
   available: boolean;
   /** Null when voice is not configured or the player is not in a group. */
