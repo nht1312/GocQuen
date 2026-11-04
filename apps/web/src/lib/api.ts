@@ -1,4 +1,5 @@
 import type {
+  AvatarConfig,
   CafeInfo,
   GuestSession,
   JoinResult,
@@ -50,7 +51,7 @@ export const api = {
     }),
 
   me: (token: string) =>
-    request<{ userId: string; displayName: string; avatar: { presetId: string } }>(
+    request<{ userId: string; displayName: string; avatar: AvatarConfig }>(
       '/me',
       {},
       token,

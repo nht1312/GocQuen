@@ -213,3 +213,17 @@ export function classifyScreenShareError(error: unknown): ScreenShareFailure {
     toast: true,
   };
 }
+
+/**
+ * Which hop of starting a share failed, in the café's own words.
+ *
+ * Shown in the toast so a person can say which step broke rather than only
+ * that "it did not work" — the three hops fail for completely different
+ * reasons and need different fixes.
+ */
+export const SCREEN_STEP_LABEL: Record<'claim' | 'token' | 'connect' | 'publish', string> = {
+  claim: 'Không đăng ký được lượt chia sẻ',
+  token: 'Không lấy được quyền chia sẻ màn hình',
+  connect: 'Không kết nối được tới máy chủ hình ảnh',
+  publish: 'Không gửi được màn hình đi',
+};

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AVATAR_PRESETS,
   CLIENT_EVENTS,
   HEARTBEAT_INTERVAL_MS,
   ModerationReason,
@@ -16,10 +17,12 @@ import { CafeAudioEngine } from '@/audio/engine';
 import { CafeEngine } from '@/game/engine';
 import { ApiError, api } from '@/lib/api';
 import { createSocket, type Socket } from '@/lib/socket';
+import { planSessionBootstrap } from '@/lib/sessionPlan';
 import { readLocal, writeLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { VoiceClient } from '@/voice/voiceClient';
 import {
+  SCREEN_STEP_LABEL,
   classifyScreenShareError,
   deriveScreenShareView,
   isScreenShareSupported,
@@ -83,30 +86,56 @@ export function useCafe() {
       const stored = readLocal<StoredSession>(STORAGE_KEYS.session, { token: '', userId: '' });
       let token = stored.token;
       try {
+        let currentName: string | null = null;
+        let avatar = null as Awaited<ReturnType<typeof api.me>>['avatar'] | null;
         if (token) {
-          await api.me(token).catch(() => {
+          const me = await api.me(token).catch(() => null);
+          if (me) {
+            currentName = me.displayName;
+            avatar = me.avatar;
+          } else {
             token = '';
-          });
-        }
-        if (!token) {
-          // The name typed on the landing page. The server applies the same
-          // rule again and falls back to a café name if it is unusable, so a
-          // tampered value cannot produce a nonsense name plate.
-          const pending = readLocal(STORAGE_KEYS.pendingName, { name: '' });
-          const chosen = normaliseDisplayName(pending.name);
-          if (!chosen) {
-            // No name and no existing session: do not mint one. Redirecting
-            // the view is not enough — arriving straight at /cafe used to
-            // create a nameless guest before the redirect could fire, and
-            // that session was then reused on the way back in, so the name
-            // typed at the door was silently ignored.
-            set.setPhase('idle');
-            return;
           }
-          const session = await api.createGuest(chosen);
+        }
+
+        const pending = readLocal(STORAGE_KEYS.pendingName, { name: '' });
+        const plan = planSessionBootstrap({
+          hasToken: Boolean(token),
+          pendingName: pending.name,
+          currentName,
+        });
+
+        if (plan.action === 'refuse') {
+          // No name and no existing session: do not mint one. Redirecting the
+          // view is not enough — arriving straight at /cafe used to create a
+          // nameless guest before the redirect could fire.
+          set.setPhase('idle');
+          return;
+        }
+
+        if (plan.action === 'create') {
+          const session = await api.createGuest(plan.name);
           token = session.token;
           writeLocal(STORAGE_KEYS.session, { token: session.token, userId: session.userId });
           store.getState().setSession(session);
+        } else {
+          // Returning with a session. Two things used to go wrong here and
+          // both were invisible until someone used it: the name just typed at
+          // the door was ignored, and the session never reached the store, so
+          // anything reading it — Share Screen among them — silently did
+          // nothing.
+          if (plan.action === 'rename') {
+            const updated = await api.updateProfile(token, { displayName: plan.name });
+            currentName = updated.displayName;
+            avatar = updated.avatar;
+          }
+          store.getState().setSession({
+            token,
+            userId: stored.userId,
+            displayName: currentName ?? '',
+            avatar: avatar ?? { presetId: AVATAR_PRESETS[0].id },
+            expiresAt: 0,
+          });
         }
         await api.joinCafe(token);
         const blocks = await api.blocks(token).catch(() => ({ blocked: [] as string[] }));
@@ -422,16 +451,28 @@ export function useCafe() {
   }, []);
 
   /**
-   * Start sharing: open the browser's picker, then tell the server.
+   * Start sharing.
    *
-   * The server is asked only after the user has actually chosen a source, so
-   * a cancelled picker never leaves a session registered at the table with
-   * nothing behind it.
+   * The slot is claimed before the picker opens, because LiveKit can only
+   * open the picker through a room it is already connected to. That means a
+   * cancelled picker leaves a claimed slot for a moment, so every failure
+   * path below releases it — otherwise one abandoned attempt would block the
+   * whole table.
+   *
+   * Each step is labelled. A failure anywhere used to collapse into one
+   * message, which made a report of "it did not work" impossible to act on.
    */
   const startScreenShare = useCallback(async () => {
     const state = store.getState();
     const session = state.session;
-    if (!session) return;
+    if (!session) {
+      // This used to return silently, so a returning visitor — whose session
+      // was never put in the store — pressed Share Screen and nothing at all
+      // happened. The store is populated on both paths now, but a button that
+      // does nothing without saying why is never acceptable.
+      state.showToast('Chưa sẵn sàng chia sẻ màn hình. Hãy tải lại trang.', 'error');
+      return;
+    }
 
     if (!isScreenShareSupported(globalThis.navigator?.mediaDevices)) {
       state.showToast('Trình duyệt này không hỗ trợ chia sẻ màn hình', 'error');
@@ -439,6 +480,7 @@ export function useCafe() {
     }
 
     state.setScreenShareLocal('selecting');
+    let step: 'claim' | 'token' | 'connect' | 'publish' = 'claim';
     try {
       const claimed = await api.screenShareStart(session.token);
       if (!claimed.active) {
@@ -447,23 +489,32 @@ export function useCafe() {
         return;
       }
 
+      step = 'token';
       state.setScreenShareLocal('connecting');
       const grant = await api.screenShareToken(session.token);
       if (!grant.token || !grant.url) {
         throw new Error(grant.reason ?? 'Không lấy được quyền chia sẻ màn hình');
       }
 
+      step = 'connect';
       const client = ensureScreenClient();
       await client.connect(grant.url, grant.token);
+
+      step = 'publish';
       await client.startPublishing();
       store.getState().setScreenShareLocal('none');
     } catch (error) {
+      // Name the step in the console so a report of "it did not work" can be
+      // traced to the hop that actually failed.
+      console.error(`[screen-share] failed while ${step}`, error);
       // A cancelled picker, a refused permission and a dead transport all
       // land here and deserve different treatment. Whatever it was, release
       // the slot so an attempt that never began cannot block the table.
       const failure = classifyScreenShareError(error);
       store.getState().setScreenShareLocal(failure.local);
-      if (failure.toast) store.getState().showToast(failure.message, 'error');
+      if (failure.toast) {
+        store.getState().showToast(`${SCREEN_STEP_LABEL[step]}: ${failure.message}`, 'error');
+      }
       await api.screenShareStop(session.token).catch(() => undefined);
       await screenRef.current?.disconnect();
       setScreenVideo(null);
