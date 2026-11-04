@@ -69,8 +69,10 @@ Backend first, as the spec requires. Each task is one commit with tests.
       from server-side seat state. Pure logic, no LiveKit, no DB.
       *Done: `voice/screen-share.service.ts`, 12 tests in
       `test/screen-share.spec.ts`.*
-- [ ] **2. Revocation** — release on stand, table change, leave café and
-      disconnect. Hooks into the existing `clearVoice` call sites.
+- [x] **2. Revocation** — release on stand, table change, leave café and
+      disconnect. *Done: validity is derived on read (`live`/`activeAt`) so a
+      stale slot cannot be observed, plus `releaseIfStale` for announcing it
+      once. 6 tests.*
 - [ ] **3. Token grant** — add `screen_share` to `canPublishSources`, but only
       for the user holding the publisher slot. Viewers get subscribe-only.
       *(needs sign-off — see finding 2)*

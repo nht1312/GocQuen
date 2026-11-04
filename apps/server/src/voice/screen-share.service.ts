@@ -74,6 +74,41 @@ export class ScreenShareService {
     return { instanceId: instance.id, groupId: seat.seatGroupId };
   }
 
+  /**
+   * A session only exists while its publisher is still able to produce it:
+   * in the café, seated at that same table, and holding a live socket.
+   *
+   * This is checked on read rather than maintained by hooks. Standing up,
+   * changing table, leaving and disconnecting all go through different code
+   * paths, and a hook that someone forgets to call would leave a table unable
+   * to share because a ghost holds the slot. Deriving it means a stale session
+   * cannot be observed even if no hook fires.
+   *
+   * The disconnect case deliberately matches how voice behaves in `detach`:
+   * the seat is held through the grace window so the avatar does not vanish,
+   * but the media session ends immediately.
+   */
+  private live(session: ScreenShareSession): boolean {
+    const instance = this.instances.getInstance(session.instanceId);
+    const player = instance?.players.get(session.publisherId);
+    if (!instance || !player) return false;
+    if (player.socketId === null) return false;
+
+    const seatId = player.presence.seatId;
+    if (!seatId) return false;
+    return SEATS_BY_ID.get(seatId)?.seatGroupId === session.groupId;
+  }
+
+  /** Read the session at a table, dropping it first if it is no longer live. */
+  private activeAt(instanceId: string, groupId: string): ScreenShareSession | null {
+    const key = ScreenShareService.key(instanceId, groupId);
+    const session = this.sessions.get(key);
+    if (!session) return null;
+    if (this.live(session)) return session;
+    this.sessions.delete(key);
+    return null;
+  }
+
   /** Take the publisher slot for the caller's own table. */
   claim(userId: string): ScreenShareClaim {
     const instance = this.instances.findInstanceOf(userId);
@@ -88,7 +123,7 @@ export class ScreenShareService {
     }
 
     const key = ScreenShareService.key(table.instanceId, table.groupId);
-    const existing = this.sessions.get(key);
+    const existing = this.activeAt(table.instanceId, table.groupId);
     if (existing) {
       // Re-claiming your own slot is a no-op, so a retry after a flaky network
       // does not look like someone else is already sharing.
@@ -133,7 +168,7 @@ export class ScreenShareService {
   visibleTo(userId: string): ScreenShareSession | null {
     const table = this.tableOf(userId);
     if (!table) return null;
-    return this.sessions.get(ScreenShareService.key(table.instanceId, table.groupId)) ?? null;
+    return this.activeAt(table.instanceId, table.groupId);
   }
 
   /**
@@ -143,5 +178,26 @@ export class ScreenShareService {
    */
   mayPublishScreen(userId: string): boolean {
     return this.visibleTo(userId)?.publisherId === userId;
+  }
+
+  /**
+   * Drop this user's session if it is no longer live, and report it so the
+   * caller can tell the table once.
+   *
+   * Reads already self-heal, but a silent disappearance would leave viewers
+   * watching a frozen frame. Lifecycle handlers call this to turn the implicit
+   * expiry into an explicit `screen-share:stopped`. Returns null when there is
+   * nothing to announce, including on a second call, so the event cannot be
+   * broadcast twice.
+   */
+  releaseIfStale(userId: string, reason: ScreenShareEndReason): ScreenShareSession | null {
+    for (const [key, session] of this.sessions) {
+      if (session.publisherId !== userId) continue;
+      if (this.live(session)) return null;
+      this.sessions.delete(key);
+      this.logger.log(`Screen share ${session.id} ended (${reason})`);
+      return session;
+    }
+    return null;
   }
 }

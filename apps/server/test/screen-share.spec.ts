@@ -177,3 +177,93 @@ describe('ScreenShareService — publish authorization', () => {
     expect(screen.visibleTo(alice.presence.userId)).toBeNull();
   });
 });
+
+describe('ScreenShareService — the slot is released automatically', () => {
+  it('frees the slot when the publisher stands up', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    screen.claim(alice.presence.userId);
+
+    manager.stand(alice.presence.userId);
+
+    expect(screen.visibleTo(bob.presence.userId)).toBeNull();
+    expect(screen.claim(bob.presence.userId).ok).toBe(true);
+  });
+
+  it('frees the old table when the publisher moves to another table', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    screen.claim(alice.presence.userId);
+
+    seat(manager, alice.presence.userId, tableB[0].seatId);
+
+    // Nothing left behind at the table she walked away from.
+    expect(screen.visibleTo(bob.presence.userId)).toBeNull();
+    // And the session does not follow her to the new table.
+    expect(screen.visibleTo(alice.presence.userId)).toBeNull();
+    expect(screen.mayPublishScreen(alice.presence.userId)).toBe(false);
+  });
+
+  it('frees the slot when the publisher leaves the café', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    screen.claim(alice.presence.userId);
+
+    manager.remove(alice.presence.userId);
+
+    expect(screen.visibleTo(bob.presence.userId)).toBeNull();
+    expect(screen.claim(bob.presence.userId).ok).toBe(true);
+  });
+
+  it('stops sharing the moment the publisher disconnects, not when the seat expires', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    screen.claim(alice.presence.userId);
+
+    manager.detach(alice.presence.userId);
+
+    // The seat is deliberately held through the grace window...
+    expect(manager.getPlayer(alice.presence.userId)?.presence.seatId).toBe(tableA[0].seatId);
+    // ...but the screen is not still being shared to the table.
+    expect(screen.visibleTo(bob.presence.userId)).toBeNull();
+  });
+});
+
+describe('ScreenShareService — reporting a release for broadcast', () => {
+  it('reports the ended session once so it is announced once', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+
+    manager.stand(alice.presence.userId);
+
+    const first = screen.releaseIfStale(alice.presence.userId, 'left_table');
+    expect(first).not.toBeNull();
+    if (first && claimed.ok) expect(first.id).toBe(claimed.session.id);
+    // A second sweep has nothing left to announce.
+    expect(screen.releaseIfStale(alice.presence.userId, 'left_table')).toBeNull();
+  });
+
+  it('reports nothing while the publisher is still seated and connected', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    screen.claim(alice.presence.userId);
+
+    expect(screen.releaseIfStale(alice.presence.userId, 'left_table')).toBeNull();
+    expect(screen.visibleTo(alice.presence.userId)).not.toBeNull();
+  });
+});
