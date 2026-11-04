@@ -8,6 +8,7 @@ import {
   PlayerStatus,
   SERVER_EVENTS,
   STORAGE_KEYS,
+  normaliseDisplayName,
   type ScreenShareFailedEvent,
   type ScreenShareStartedEvent,
 } from '@virtual-cafe/shared';
@@ -88,7 +89,21 @@ export function useCafe() {
           });
         }
         if (!token) {
-          const session = await api.createGuest();
+          // The name typed on the landing page. The server applies the same
+          // rule again and falls back to a café name if it is unusable, so a
+          // tampered value cannot produce a nonsense name plate.
+          const pending = readLocal(STORAGE_KEYS.pendingName, { name: '' });
+          const chosen = normaliseDisplayName(pending.name);
+          if (!chosen) {
+            // No name and no existing session: do not mint one. Redirecting
+            // the view is not enough — arriving straight at /cafe used to
+            // create a nameless guest before the redirect could fire, and
+            // that session was then reused on the way back in, so the name
+            // typed at the door was silently ignored.
+            set.setPhase('idle');
+            return;
+          }
+          const session = await api.createGuest(chosen);
           token = session.token;
           writeLocal(STORAGE_KEYS.session, { token: session.token, userId: session.userId });
           store.getState().setSession(session);

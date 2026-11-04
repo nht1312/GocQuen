@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { STORAGE_KEYS } from '@virtual-cafe/shared';
+import { useRouter } from 'next/navigation';
+import { STORAGE_KEYS, normaliseDisplayName } from '@virtual-cafe/shared';
 import { useCafe } from '@/hooks/useCafe';
-import { readFlag } from '@/lib/storage';
+import { readFlag, readLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { AudioDock } from './AudioDock';
 import { CafeCanvas } from './CafeCanvas';
@@ -16,6 +17,7 @@ import { StatusBar } from './StatusBar';
 
 /** The café screen (SPEC 10.1): canvas in the middle, collapsible panels around it. */
 export function CafeShell() {
+  const router = useRouter();
   const controls = useCafe();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(true);
@@ -26,6 +28,16 @@ export function CafeShell() {
   useEffect(() => {
     setShowOnboarding(!readFlag(STORAGE_KEYS.onboarding));
   }, []);
+
+  // Everyone gives a name at the door. Arriving at /cafe directly — a
+  // bookmark, a shared link, a refresh after clearing storage — sends you
+  // back to the front to provide one, unless you already have a session and
+  // therefore already have a name.
+  useEffect(() => {
+    const named = normaliseDisplayName(readLocal(STORAGE_KEYS.pendingName, { name: '' }).name);
+    const hasSession = Boolean(readLocal(STORAGE_KEYS.session, { token: '' }).token);
+    if (!named && !hasSession) router.replace('/');
+  }, [router]);
 
   // Browsers only allow audio after a gesture; take the first one we get.
   useEffect(() => {

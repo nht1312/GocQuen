@@ -83,8 +83,45 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
 export const HEARTBEAT_INTERVAL_MS = 10_000;
 export const HEARTBEAT_TIMEOUT_MS = 30_000;
 
+/**
+ * Display name bounds.
+ *
+ * Two characters is the shortest thing that reads as a name; 24 is what a
+ * name plate can hold over an avatar without covering the person next to
+ * them.
+ */
+export const DISPLAY_NAME_MIN = 2;
+export const DISPLAY_NAME_MAX = 24;
+
+/**
+ * The one rule for turning typed input into a usable display name.
+ *
+ * Shared deliberately: the landing page has to tell someone their name is too
+ * short *before* they walk in, and the server has to enforce the same thing
+ * when the request arrives. Two copies of this rule would eventually disagree,
+ * and the visible symptom would be a name silently replaced by a random one.
+ *
+ * Control characters are stripped rather than rejected — zero-width and
+ * directional marks can be used to impersonate another guest's name plate or
+ * break the layout around it, and someone pasting a name should not have to
+ * know that.
+ *
+ * Returns null when nothing usable is left, which is the caller's cue to fall
+ * back (server) or to refuse entry (client).
+ */
+export function normaliseDisplayName(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const cleaned = value
+    .replace(/[\p{C}]/gu, '')
+    .trim()
+    .slice(0, DISPLAY_NAME_MAX);
+  return cleaned.length >= DISPLAY_NAME_MIN ? cleaned : null;
+}
+
 export const STORAGE_KEYS = {
   session: 'virtual-cafe.session',
+  /** The name typed on the landing page, read once on the way in. */
+  pendingName: 'virtual-cafe.pending-name',
   audio: 'virtual-cafe.audio',
   onboarding: 'virtual-cafe.onboarding-complete',
   mutedUsers: 'virtual-cafe.muted-users',

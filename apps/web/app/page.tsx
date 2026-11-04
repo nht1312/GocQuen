@@ -1,11 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import type { CafeInfo } from '@virtual-cafe/shared';
+import {
+  DISPLAY_NAME_MAX,
+  DISPLAY_NAME_MIN,
+  STORAGE_KEYS,
+  normaliseDisplayName,
+  type CafeInfo,
+} from '@virtual-cafe/shared';
 import { api } from '@/lib/api';
 import { SITE_NAME } from '@/lib/site';
+import { readLocal, writeLocal } from '@/lib/storage';
 
 /**
  * Landing (SPEC 4.1): một màn hình ngắn, một nút bấm, không đăng ký. Trang này
@@ -19,6 +26,29 @@ import { SITE_NAME } from '@/lib/site';
 export default function LandingPage() {
   const [info, setInfo] = useState<CafeInfo | null>(null);
   const [offline, setOffline] = useState(false);
+  const [name, setName] = useState('');
+  const [touched, setTouched] = useState(false);
+  const router = useRouter();
+
+  // The name the server will actually use, or null if it is not usable yet.
+  // Validated with the same rule the server applies, so the button cannot
+  // promise entry that the server then quietly renames.
+  const cleaned = normaliseDisplayName(name);
+
+  // Offer back the name they used last time rather than making them retype it.
+  useEffect(() => {
+    const stored = readLocal(STORAGE_KEYS.pendingName, { name: '' });
+    if (stored.name) setName(stored.name);
+  }, []);
+
+  function enter(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    setTouched(true);
+    const usable = normaliseDisplayName(name);
+    if (!usable) return;
+    writeLocal(STORAGE_KEYS.pendingName, { name: usable });
+    router.push('/cafe');
+  }
 
   useEffect(() => {
     api
@@ -55,21 +85,45 @@ export default function LandingPage() {
           cần bật camera.
         </p>
 
-        <div className="mt-9 flex flex-wrap items-center gap-4">
-          <Link
-            href="/cafe"
-            className="rounded-xl bg-caramel px-6 py-3 text-sm font-semibold text-espresso transition hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal"
-          >
-            Vào quán
-          </Link>
-          <span className="text-xs text-linen/60">
-            {offline
-              ? 'Máy chủ của quán chưa phản hồi — hãy khởi động bằng lệnh npm run dev.'
-              : info
-                ? `${info.onlineCount} người đang ở trong quán · không cần tài khoản`
-                : 'Không cần tài khoản'}
-          </span>
-        </div>
+        <form onSubmit={enter} className="mt-9 flex flex-col gap-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex flex-col">
+              <label htmlFor="display-name" className="sr-only">
+                Tên hiển thị của bạn trong quán
+              </label>
+              <input
+                id="display-name"
+                name="displayName"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={DISPLAY_NAME_MAX}
+                autoComplete="nickname"
+                placeholder="Bạn tên gì?"
+                aria-describedby="display-name-hint"
+                aria-invalid={touched && !cleaned ? true : undefined}
+                className="w-56 rounded-xl border border-white/15 bg-charcoal/80 px-4 py-3 text-sm text-cream placeholder:text-linen/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!cleaned}
+              className="rounded-xl bg-caramel px-6 py-3 text-sm font-semibold text-espresso transition hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Vào quán
+            </button>
+          </div>
+
+          <p id="display-name-hint" className="max-w-md text-xs leading-relaxed text-linen/60">
+            {touched && !cleaned
+              ? `Tên cần ít nhất ${DISPLAY_NAME_MIN} ký tự để mọi người đọc được trên bảng tên.`
+              : offline
+                ? 'Máy chủ của quán chưa phản hồi — hãy khởi động bằng lệnh npm run dev.'
+                : info
+                  ? `${info.onlineCount} người đang ở trong quán · không cần tài khoản`
+                  : 'Mọi người trong quán sẽ thấy tên này · không cần tài khoản'}
+          </p>
+        </form>
 
         <section
           aria-labelledby="tinh-nang"

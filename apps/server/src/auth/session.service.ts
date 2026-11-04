@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
-import { AVATAR_PRESETS, AvatarConfig, AvatarPresetId, GuestSession } from '@virtual-cafe/shared';
+import { AVATAR_PRESETS, AvatarConfig, AvatarPresetId, GuestSession,
+  normaliseDisplayName,
+} from '@virtual-cafe/shared';
 import { AppConfig } from '../config/app-config';
 import { Store } from '../storage/store';
 
@@ -67,12 +69,8 @@ export class SessionService {
   }
 
   /** Returns null for empty input so the caller can fall back to a random name. */
+  /** Delegates to the shared rule so the client cannot enforce a different one. */
   static sanitiseName(value: string | undefined | null): string | null {
-    if (!value) return null;
-    const cleaned = value
-      .replace(/[\p{C}]/gu, '')
-      .trim()
-      .slice(0, 24);
-    return cleaned.length >= 2 ? cleaned : null;
+    return normaliseDisplayName(value);
   }
 }
