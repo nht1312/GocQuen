@@ -81,8 +81,11 @@ Backend first, as the spec requires. Each task is one commit with tests.
       rate limited per caller. *Done: 11 tests. No table id in any route.
       The seated cross-table check over real HTTP is deferred to task 10,
       where the smoke suite's pathfinding already exists.*
-- [ ] **5. Socket events** — `screen-share:started|stopped|failed`, broadcast
-      to the publisher's table only, never carrying tokens.
+- [x] **5. Socket events** — `screen-share:started|stopped|failed`, broadcast
+      only to `audienceFor()` (table members + publisher), metadata only.
+      Sweeps wired to all four lifecycle points. *Done: 5 audience tests plus
+      an end-to-end socket check. `participant-joined/left` deliberately
+      omitted — see below.*
 - [ ] **6. Persistence** — `screen_share_sessions` metadata through the
       existing `Store` abstraction; memory + Postgres + schema.sql.
 - [ ] **7. Web client** — publish/subscribe via the LiveKit SDK, store state.
@@ -104,3 +107,12 @@ Four independent layers, no UI involvement:
    client is modified.
 4. **Expiry** — tokens are short-lived (`VOICE_TOKEN_TTL_SECONDS`, 600s) and
    leaving the table releases the slot immediately.
+
+## Deliberately not implemented
+
+`screen-share:participant-joined` / `participant-left` from spec §7. Seat
+occupancy already broadcasts `seat:occupied` and `seat:released` to the
+instance, and the client derives table membership from that. A parallel set of
+viewer events would be a second membership system telling the same story, and
+the brief says not to introduce duplicates. Worth revisiting only if the
+publisher needs a viewer count, which no acceptance criterion asks for.

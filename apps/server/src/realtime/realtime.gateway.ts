@@ -29,6 +29,7 @@ import {
   voiceStateSchema,
 } from '@virtual-cafe/shared';
 import { SessionClaims, SessionService } from '../auth/session.service';
+import { ScreenShareEndReason, ScreenShareService, ScreenShareSession } from '../voice/screen-share.service';
 import { RateLimiter } from '../common/rate-limiter';
 import { AppConfig } from '../config/app-config';
 import { MetricsService } from '../metrics/metrics.service';
@@ -109,6 +110,7 @@ export class RealtimeGateway
   constructor(
     private readonly sessions: SessionService,
     private readonly instances: InstanceManager,
+    private readonly screenShare: ScreenShareService,
     private readonly metrics: MetricsService,
     private readonly store: Store,
     private readonly config: AppConfig,
@@ -227,6 +229,9 @@ export class RealtimeGateway
     // Ignore the stale socket of a player who already reconnected elsewhere.
     if (player && player.socketId !== socket.id) return;
     this.instances.detach(userId);
+    // The socket is gone, so the media is gone — do not make the table wait
+    // out the seat's grace period staring at a frozen frame.
+    this.sweepScreenShare(userId, 'disconnected');
     this.metrics.increment('socket_disconnects_total');
     const instance = this.instances.findInstanceOf(userId);
     if (instance) {
@@ -333,6 +338,9 @@ export class RealtimeGateway
     if (!socket.data.joined) return;
     const userId = socket.data.session.sub;
     const removed = this.instances.remove(userId);
+    // Sweep after removal: the session is keyed by publisher, so it is still
+    // findable, and it is now unambiguously stale.
+    this.sweepScreenShare(userId, 'left_cafe');
     socket.data.joined = false;
     if (removed) {
       this.server.to(roomOf(removed.instanceId)).emit(SERVER_EVENTS.playerLeft, { userId });
@@ -401,6 +409,8 @@ export class RealtimeGateway
     const instance = this.instances.findInstanceOf(userId);
     if (!instance) return;
     this.metrics.increment('seat_claims_total');
+    // Moving to another table ends a share held at the one just left.
+    this.sweepScreenShare(userId, 'left_table');
     if (result.releasedSeatId) {
       this.server
         .to(roomOf(instance.id))
@@ -422,6 +432,7 @@ export class RealtimeGateway
     const previousGroup = this.instances.getPlayer(userId)?.presence.voice.groupId ?? null;
     const result = this.instances.stand(userId);
     if (!result || !instance) return;
+    this.sweepScreenShare(userId, 'left_table');
     if (result.releasedSeatId) {
       this.server
         .to(roomOf(instance.id))
@@ -538,5 +549,94 @@ export class RealtimeGateway
   onPing(@ConnectedSocket() socket: CafeSocket): void {
     if (!this.guard(socket, 'session:ping')) return;
     socket.emit(SERVER_EVENTS.pong, { serverTime: Date.now() });
+  }
+
+  // ------------------------------------------------------------ screen share
+
+  @SubscribeMessage(CLIENT_EVENTS.screenShareStart)
+  onScreenShareStart(@ConnectedSocket() socket: CafeSocket): void {
+    if (!socket.data.joined || !this.guard(socket, 'screen-share:start')) return;
+    const userId = socket.data.session.sub;
+
+    const result = this.screenShare.claim(userId);
+    if (!result.ok) {
+      this.metrics.increment('screen_share_rejections_total');
+      socket.emit(SERVER_EVENTS.screenShareFailed, {
+        code: result.code,
+        message: result.message,
+      });
+      return;
+    }
+    this.metrics.increment('screen_share_starts_total');
+    this.announceStarted(result.session);
+  }
+
+  @SubscribeMessage(CLIENT_EVENTS.screenShareStop)
+  onScreenShareStop(@ConnectedSocket() socket: CafeSocket): void {
+    if (!socket.data.joined || !this.guard(socket, 'screen-share:stop')) return;
+    const userId = socket.data.session.sub;
+
+    const result = this.screenShare.release(userId, 'manual');
+    if (!result.ok) {
+      this.metrics.increment('screen_share_rejections_total');
+      socket.emit(SERVER_EVENTS.screenShareFailed, {
+        code: result.code,
+        message: result.message,
+      });
+      return;
+    }
+    this.metrics.increment('screen_share_stops_total');
+    this.announceStopped(result.session, 'manual');
+  }
+
+  @SubscribeMessage(CLIENT_EVENTS.screenShareRequestState)
+  onScreenShareRequestState(@ConnectedSocket() socket: CafeSocket): void {
+    if (!socket.data.joined) return;
+    const session = this.screenShare.visibleTo(socket.data.session.sub);
+    if (!session) return;
+    socket.emit(SERVER_EVENTS.screenShareStarted, this.startedPayload(session));
+  }
+
+  private startedPayload(session: ScreenShareSession) {
+    // Metadata only. The token is fetched over HTTP by each client for itself.
+    return {
+      sessionId: session.id,
+      groupId: session.groupId,
+      publisherId: session.publisherId,
+      publisherName: session.publisherName,
+      startedAt: session.startedAt,
+    };
+  }
+
+  private announceStarted(session: ScreenShareSession): void {
+    const payload = this.startedPayload(session);
+    for (const memberId of this.screenShare.audienceFor(session)) {
+      this.socketOf(memberId)?.emit(SERVER_EVENTS.screenShareStarted, payload);
+    }
+  }
+
+  private announceStopped(session: ScreenShareSession, reason: ScreenShareEndReason): void {
+    const payload = {
+      sessionId: session.id,
+      groupId: session.groupId,
+      publisherId: session.publisherId,
+      reason,
+    };
+    for (const memberId of this.screenShare.audienceFor(session)) {
+      this.socketOf(memberId)?.emit(SERVER_EVENTS.screenShareStopped, payload);
+    }
+  }
+
+  /**
+   * Turn an implicit expiry into something viewers can see.
+   *
+   * The session is already invalid the moment the publisher stands up, changes
+   * table, leaves or drops — `ScreenShareService` derives that on read. Without
+   * this sweep, though, viewers would simply be left looking at a frozen last
+   * frame with no idea why. Called from each of those lifecycle points.
+   */
+  private sweepScreenShare(userId: string, reason: ScreenShareEndReason): void {
+    const ended = this.screenShare.releaseIfStale(userId, reason);
+    if (ended) this.announceStopped(ended, reason);
   }
 }

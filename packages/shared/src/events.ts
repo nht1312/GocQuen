@@ -32,6 +32,9 @@ export const CLIENT_EVENTS = {
   voiceState: 'voice:state',
   chatSend: 'chat:send',
   ping: 'session:ping',
+  screenShareStart: 'screen-share:start',
+  screenShareStop: 'screen-share:stop',
+  screenShareRequestState: 'screen-share:request-state',
 } as const;
 
 export const SERVER_EVENTS = {
@@ -48,6 +51,9 @@ export const SERVER_EVENTS = {
   chatReceived: 'chat:received',
   systemError: 'system:error',
   pong: 'session:pong',
+  screenShareStarted: 'screen-share:started',
+  screenShareStopped: 'screen-share:stopped',
+  screenShareFailed: 'screen-share:failed',
 } as const;
 
 const directionSchema = z.enum(DIRECTIONS as [string, ...string[]]);
@@ -135,6 +141,31 @@ export interface VoiceGroupEvent {
   members: string[];
 }
 
+/**
+ * Screen-share lifecycle. Carries metadata only — never a LiveKit token or
+ * any other credential. A client that needs media access asks for its own
+ * token over HTTP, where the server can check who is asking.
+ */
+export interface ScreenShareStartedEvent {
+  sessionId: string;
+  groupId: string;
+  publisherId: string;
+  publisherName: string;
+  startedAt: number;
+}
+
+export interface ScreenShareStoppedEvent {
+  sessionId: string;
+  groupId: string;
+  publisherId: string;
+  reason: string;
+}
+
+export interface ScreenShareFailedEvent {
+  code: 'forbidden' | 'conflict' | 'not_found' | 'rate_limited';
+  message: string;
+}
+
 export interface SystemErrorEvent {
   event: string;
   code: 'invalid_payload' | 'rate_limited' | 'forbidden' | 'not_found' | 'conflict';
@@ -155,6 +186,9 @@ export interface ServerToClientEvents {
   'chat:received': (message: ChatMessage) => void;
   'system:error': (payload: SystemErrorEvent) => void;
   'session:pong': (payload: { serverTime: number }) => void;
+  'screen-share:started': (payload: ScreenShareStartedEvent) => void;
+  'screen-share:stopped': (payload: ScreenShareStoppedEvent) => void;
+  'screen-share:failed': (payload: ScreenShareFailedEvent) => void;
 }
 
 export type NpcUpdate = Pick<NpcPresence, 'npcId' | 'x' | 'y' | 'direction' | 'activity'>;

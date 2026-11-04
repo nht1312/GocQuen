@@ -267,3 +267,71 @@ describe('ScreenShareService — reporting a release for broadcast', () => {
     expect(screen.visibleTo(alice.presence.userId)).not.toBeNull();
   });
 });
+
+describe('ScreenShareService — who may be told about a session', () => {
+  it('tells everyone seated at that table', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+
+    const audience = screen.audienceFor(claimed.session);
+    expect(audience).toContain(alice.presence.userId);
+    expect(audience).toContain(bob.presence.userId);
+  });
+
+  it('never tells another table', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const carol = join(manager, 'Carol');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, carol.presence.userId, tableB[0].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+
+    expect(screen.audienceFor(claimed.session)).not.toContain(carol.presence.userId);
+  });
+
+  it('never tells someone who is only standing nearby', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const dave = join(manager, 'Dave');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+
+    expect(screen.audienceFor(claimed.session)).not.toContain(dave.presence.userId);
+  });
+
+  it('still tells the publisher after they have left the table', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    const bob = join(manager, 'Bob');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    seat(manager, bob.presence.userId, tableA[1].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+
+    manager.stand(alice.presence.userId);
+
+    // Alice is no longer at the table, but her own client still has a panel
+    // open and must be told the session ended.
+    const audience = screen.audienceFor(claimed.session);
+    expect(audience).toContain(alice.presence.userId);
+    expect(audience).toContain(bob.presence.userId);
+  });
+
+  it('does not repeat a recipient', () => {
+    const { manager, screen } = makeServices();
+    const alice = join(manager, 'Alice');
+    seat(manager, alice.presence.userId, tableA[0].seatId);
+    const claimed = screen.claim(alice.presence.userId);
+    if (!claimed.ok) throw new Error('claim failed');
+
+    const audience = screen.audienceFor(claimed.session);
+    expect(audience).toEqual([...new Set(audience)]);
+  });
+});

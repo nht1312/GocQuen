@@ -181,6 +181,25 @@ export class ScreenShareService {
   }
 
   /**
+   * Exactly who may be told about this session.
+   *
+   * This is the authorisation boundary for every broadcast: everyone seated at
+   * that table, plus the publisher. The publisher is included even once they
+   * have stood up or moved tables, because their own client still has a panel
+   * open and has to be told it ended — and it is their own session, so this
+   * reveals nothing they did not already know.
+   *
+   * Nobody else is ever in the list, including people standing beside the
+   * table and people seated elsewhere in the same café.
+   */
+  audienceFor(session: ScreenShareSession): string[] {
+    const instance = this.instances.getInstance(session.instanceId);
+    if (!instance) return [session.publisherId];
+    const seated = this.instances.tableMembers(instance, session.groupId);
+    return seated.includes(session.publisherId) ? seated : [...seated, session.publisherId];
+  }
+
+  /**
    * Drop this user's session if it is no longer live, and report it so the
    * caller can tell the table once.
    *
