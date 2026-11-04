@@ -18,9 +18,17 @@ export class AppConfig {
   readonly nodeEnv = process.env.NODE_ENV ?? 'development';
   readonly isProduction = this.nodeEnv === 'production';
   readonly port = int(process.env.PORT, 4000);
+  /**
+   * Allowed browser origins.
+   *
+   * Trailing slashes are stripped. A browser's `Origin` header never has one,
+   * so `https://example.com/` in this list would match nothing and every
+   * request would be refused with no hint as to why — a failure that looks
+   * exactly like the server being down.
+   */
   private readonly configuredOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
   /**
@@ -80,6 +88,17 @@ export class AppConfig {
   validate(): void {
     if (this.isProduction && this.sessionSecret.startsWith('dev-only')) {
       throw new Error('SESSION_SECRET must be set to a strong secret in production');
+    }
+    // In production the list is used verbatim, so a wrong entry means every
+    // browser is refused while the server still looks perfectly healthy.
+    // Print what is actually in force so the deploy log can be checked.
+    if (this.isProduction) {
+      this.logger.log(`CORS allow-list: ${this.configuredOrigins.join(', ') || '(empty)'}`);
+      if (this.configuredOrigins.some((origin) => origin.includes('localhost'))) {
+        this.logger.warn(
+          'CORS_ORIGINS still allows localhost in production — set it to the deployed web origin',
+        );
+      }
     }
     if (!this.voiceAvailable) {
       this.logger.warn('No SFU configured (LIVEKIT_*) — group voice will report as unavailable');
