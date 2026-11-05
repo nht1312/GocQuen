@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@virtual-cafe/shared": "*",
     "next": "^15.1.6",
     "react": "^19.0.0",
