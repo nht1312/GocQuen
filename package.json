@@ -18,6 +18,7 @@
     "typecheck": "npm run build:shared && npm run typecheck -w @virtual-cafe/server && npm run typecheck -w @virtual-cafe/web",
     "test": "npm run build:shared && npm run test -w @virtual-cafe/server",
     "smoke": "node tools/smoke-test.mjs",
+    "screen-share": "node tools/screen-share-check.mjs",
     "visual": "node tools/visual-check.mjs",
     "free-ports": "node tools/free-ports.mjs"
   },
