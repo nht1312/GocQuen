@@ -49,6 +49,11 @@ export const viewport: Viewport = {
   themeColor: '#1d1815',
   width: 'device-width',
   initialScale: 1,
+  // The café paints to the edges of a notched phone and then insets its own
+  // controls with env(safe-area-inset-*); without this the browser letterboxes
+  // the page instead and the room loses the strips top and bottom.
+  viewportFit: 'cover',
+  // Pinch zoom is deliberately left on: capping it would fail SPEC 16.3.
 };
 
 /**

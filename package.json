@@ -19,6 +19,7 @@
     "test": "npm run build:shared && npm run test -w @virtual-cafe/server",
     "smoke": "node tools/smoke-test.mjs",
     "visual": "node tools/visual-check.mjs",
+    "visual:mobile": "node tools/mobile-check.mjs",
     "free-ports": "node tools/free-ports.mjs"
   },
   "devDependencies": {

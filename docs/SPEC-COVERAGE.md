@@ -67,7 +67,8 @@ Every item below is covered by an automated check.
 | --- | --- |
 | Performance (§16.1) | Floor pre-rendered; ~60 sorted drawables per frame; 15 Hz movement updates; audio scheduled with a look-ahead |
 | Reliability (§16.2) | Heartbeat, timeout, grace period, seat release, voice failure does not block the café |
-| Accessibility (§16.3) | Reduced motion (in-app and OS), labels and tooltips, status shown as glyph + text not colour alone, keyboard navigation for all panels |
+| Accessibility (§16.3) | Reduced motion (in-app and OS), labels and tooltips, status shown as glyph + text not colour alone, keyboard navigation for all panels, pinch zoom never capped |
+| Responsive (§10.3) | Below `md` the side column becomes a bottom dock of four tabs with one sheet open at a time; walking and sitting have on-screen controls (`TouchControls`); the world zooms out to frame the room on a small viewport (`game/viewport.ts`); onboarding and the seat prompt name the control the device actually has; verified at phone, landscape and tablet widths by `tools/mobile-check.mjs` |
 | Observability (§16.4) | Prometheus and JSON metrics, structured logs with request ids, no tokens or message bodies logged |
 | Data model (§12) | `schema.sql` matches the spec's tables; realtime data is deliberately not persisted |
 | API (§13) | All nine endpoints implemented, plus `/me/blocks`, `/health`, `/metrics` |

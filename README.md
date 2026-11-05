@@ -293,6 +293,7 @@ None of them takes a table id.
 | `npm run typecheck` | Type checks every workspace |
 | `npm run smoke` | End-to-end check against a running server (two real socket clients) |
 | `npm run visual` | Drives the café in headless Chrome and writes screenshots |
+| `npm run visual:mobile` | The same, on an emulated phone: joystick, action button, dock |
 | `node tools/populate.mjs 5` | Seats scripted guests so you can see a busy café |
 | `node tools/load-test.mjs 25` | Measures realtime fan-out at a given occupancy (SPEC 11.3) |
 | `npm run free-ports` | Frees ports 3000 and 4000 if a previous dev run is still holding them |
@@ -326,7 +327,7 @@ processes would be killed.
 packages/shared/     Map data, seats, isometric maths, event schemas, constants
 apps/server/         NestJS: HTTP API, Socket.IO gateway, instance authority
 apps/web/            Next.js: landing page, canvas renderer, audio, UI panels
-tools/               Smoke test and visual check harnesses
+tools/               Smoke test and visual check harnesses (desktop and mobile)
 ```
 
 The shared package is the contract. The map, the seat table and the collision
@@ -428,6 +429,18 @@ npm run visual           # writes screenshots to tools/.shots
 Drives the real café in headless Chrome (Chrome or Edge, found automatically),
 walks to a seat, sits down and captures the result. Set `WEB_URL` if the app is
 not on `http://localhost:3000`.
+
+```bash
+npm run visual:mobile    # writes screenshots to tools/.shots-mobile
+```
+
+The same café on an emulated phone, with touch events and no keyboard at all
+(SPEC 10.3). It enters by tapping the landing form, walks across the room with
+the on-screen joystick, sits with the action button, opens each tab of the
+dock, and checks at every step that nothing overflows the viewport and that no
+control is smaller than a thumb. It finishes in landscape and on a tablet, so
+the layout is seen at all three widths in one run. The report lands in
+`tools/.shots-mobile/report.txt` beside the screenshots.
 
 ```bash
 node tools/populate.mjs 5 --group community

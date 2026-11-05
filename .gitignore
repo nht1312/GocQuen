@@ -7,3 +7,4 @@ out/
 .env.local
 coverage/
 tools/.shots/
+tools/.shots-mobile/

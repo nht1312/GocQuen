@@ -61,7 +61,7 @@ export default function LandingPage() {
     <main className="relative min-h-dvh overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_18%,rgba(255,206,140,0.22),transparent_58%),radial-gradient(ellipse_at_18%_82%,rgba(107,115,85,0.18),transparent_55%)]" />
 
-      <div className="relative mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-6 py-16">
+      <div className="relative mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-5 py-12 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-[calc(3rem+env(safe-area-inset-top))] sm:px-6 sm:py-16">
         <div className="flex items-center gap-4">
           {/* The logo artwork has an opaque cream background, so it is framed
               as a round badge rather than dropped flat onto the dark page. */}
@@ -75,7 +75,7 @@ export default function LandingPage() {
           />
           <p className="text-xs uppercase tracking-[0.3em] text-caramel">{SITE_NAME}</p>
         </div>
-        <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-cream sm:text-5xl">
+        <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-cream sm:text-4xl md:text-5xl">
           Quán cà phê quen thuộc của bạn, luôn trong tầm tay.
         </h1>
         <p className="mt-5 max-w-xl text-base leading-relaxed text-linen/75">
@@ -86,7 +86,7 @@ export default function LandingPage() {
         </p>
 
         <form onSubmit={enter} className="mt-9 flex flex-col gap-3">
-          <div className="flex flex-wrap items-start gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-start">
             <div className="flex flex-col">
               <label htmlFor="display-name" className="sr-only">
                 Tên hiển thị của bạn trong quán
@@ -101,14 +101,14 @@ export default function LandingPage() {
                 placeholder="Bạn tên gì?"
                 aria-describedby="display-name-hint"
                 aria-invalid={touched && !cleaned ? true : undefined}
-                className="w-56 rounded-xl border border-white/15 bg-charcoal/80 px-4 py-3 text-sm text-cream placeholder:text-linen/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+                className="w-full min-h-12 rounded-xl border border-white/15 bg-charcoal/80 px-4 py-3 text-sm text-cream placeholder:text-linen/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel sm:w-56"
               />
             </div>
 
             <button
               type="submit"
               disabled={!cleaned}
-              className="rounded-xl bg-caramel px-6 py-3 text-sm font-semibold text-espresso transition hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal disabled:cursor-not-allowed disabled:opacity-45"
+              className="min-h-12 rounded-xl bg-caramel px-6 py-3 text-sm font-semibold text-espresso transition hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal disabled:cursor-not-allowed disabled:opacity-45"
             >
               Vào quán
             </button>
@@ -127,7 +127,7 @@ export default function LandingPage() {
 
         <section
           aria-labelledby="tinh-nang"
-          className="mt-16 grid gap-6 border-t border-white/10 pt-8 sm:grid-cols-3"
+          className="mt-12 grid gap-6 border-t border-white/10 pt-8 sm:mt-16 sm:grid-cols-3"
         >
           <h2 id="tinh-nang" className="sr-only">
             Vì sao nên làm việc ở quán cà phê ảo này

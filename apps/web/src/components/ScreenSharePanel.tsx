@@ -8,6 +8,12 @@ import { IconButton, Panel } from './ui';
 interface Props {
   /** The live <video> element produced by LiveKit, or null when there is none. */
   video: HTMLVideoElement | null;
+  /**
+   * Rendered as a tab in the phone dock rather than as one of several floating
+   * panels. A tab that renders nothing is a dead end, so in this mode the
+   * panel explains itself instead of disappearing.
+   */
+  embedded?: boolean;
   onStart: () => void;
   onStop: () => void;
 }
@@ -28,7 +34,7 @@ interface Props {
  * on each render and re-attaching the media track, which drops frames; this
  * way the element outlives renders and only its container changes.
  */
-export function ScreenSharePanel({ video, onStart, onStop }: Props) {
+export function ScreenSharePanel({ video, embedded = false, onStart, onStop }: Props) {
   const session = useCafeStore((state) => state.screenShare);
   const local = useCafeStore((state) => state.screenShareLocal);
   const focus = useCafeStore((state) => state.screenShareFocus);
@@ -62,11 +68,22 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
   }, [video, focused]);
 
   // Nothing to show and nothing being attempted.
-  if (view.phase === 'idle' && !view.canStart) return null;
+  if (view.phase === 'idle' && !view.canStart) {
+    if (!embedded) return null;
+    return (
+      <Panel title="Màn hình">
+        <p className="text-[11px] leading-snug text-linen/60">
+          {seated
+            ? 'Chưa có ai chia sẻ màn hình ở bàn này.'
+            : 'Hãy ngồi vào một bàn để xem hoặc chia sẻ màn hình với những người ở đó.'}
+        </p>
+      </Panel>
+    );
+  }
 
   if (view.phase === 'idle') {
     return (
-      <Panel title="Màn hình" className="w-[290px]">
+      <Panel title="Màn hình">
         <p className="mb-2 text-[11px] leading-snug text-linen/60">
           Chia sẻ màn hình của bạn với những người ngồi cùng bàn.
         </p>
@@ -84,7 +101,7 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
       <div
         ref={mount}
         className={`relative overflow-hidden rounded-lg bg-black ${
-          focused ? 'h-[calc(100dvh-12rem)] w-full' : 'aspect-video w-full'
+          focused ? 'h-[55dvh] w-full md:h-[calc(100dvh-12rem)]' : 'aspect-video w-full'
         }`}
       >
         {!video ? (
@@ -124,15 +141,11 @@ export function ScreenSharePanel({ video, onStart, onStop }: Props) {
   );
 
   if (!focused) {
-    return (
-      <Panel title="Màn hình" className="w-[290px]">
-        {body}
-      </Panel>
-    );
+    return <Panel title="Màn hình">{body}</Panel>;
   }
 
   return (
-    <div className="pointer-events-auto fixed inset-0 z-30 grid place-items-center bg-charcoal/90 p-4 backdrop-blur-sm">
+    <div className="pointer-events-auto fixed inset-0 z-30 grid place-items-center overflow-y-auto bg-charcoal/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-sm md:p-4">
       {/* As wide as the display allows: the point of taking over is that the
           screen is readable, not that it is merely bigger. */}
       <div className="w-full max-w-[1600px]">

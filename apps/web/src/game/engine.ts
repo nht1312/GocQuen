@@ -21,13 +21,21 @@ import {
 import type { Socket } from 'socket.io-client';
 import { AvatarRenderState } from './avatar';
 import { SceneInput } from './renderer';
+import { joystickToWorld } from './touchInput';
 
-export interface InputState {
-  up: boolean;
-  down: boolean;
-  left: boolean;
-  right: boolean;
-}
+/** The four screen-space directions a key can hold down. */
+export type MoveAxis = 'up' | 'down' | 'left' | 'right';
+
+export type InputState = Record<MoveAxis, boolean> & {
+  /**
+   * Analog screen-space push from a touch joystick: x towards the right of
+   * the screen, y towards the bottom, magnitude 0..1. Present only while a
+   * thumb is on the stick, and it then takes precedence over the keys — a
+   * thumb can walk slowly and in any direction, not only the eight a keyboard
+   * can spell.
+   */
+  vector?: { x: number; y: number } | null;
+};
 
 interface Entity {
   id: string;
@@ -79,7 +87,7 @@ export interface EngineCallbacks {
 export class CafeEngine {
   private entities = new Map<string, Entity>();
   private selfId: string | null = null;
-  private input: InputState = { up: false, down: false, left: false, right: false };
+  private input: InputState = { up: false, down: false, left: false, right: false, vector: null };
   private sendAccumulator = 0;
   private sequence = 0;
   private lastSentX = 0;
@@ -292,8 +300,16 @@ export class CafeEngine {
   /**
    * Screen-space WASD mapped onto the isometric axes: pressing "up" walks
    * towards the back of the room, not towards +x.
+   *
+   * A joystick vector, when one is held, goes through the same mapping and
+   * keeps its magnitude, so a half-deflected thumb walks at half speed.
    */
   private intent(): { dx: number; dy: number } {
+    if (this.input.vector) {
+      const stick = joystickToWorld(this.input.vector);
+      if (stick.dx !== 0 || stick.dy !== 0) return stick;
+    }
+
     let dx = 0;
     let dy = 0;
     if (this.input.up) {

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { SEATS_BY_ID, tableLabel } from '@virtual-cafe/shared';
+import { TOUCH_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { useCafeStore } from '@/state/useCafeStore';
 
 /** Connection state is always visible, never silent (SPEC 10.2, 16.2). */
@@ -26,7 +27,7 @@ export function ConnectionBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-white/15 bg-espresso/90 px-4 py-1.5 text-xs text-cream shadow-panel backdrop-blur"
+      className="pointer-events-none absolute left-1/2 top-[4.5rem] z-30 max-w-[92vw] -translate-x-1/2 text-balance rounded-full border border-white/15 bg-espresso/90 px-4 py-1.5 text-center text-xs text-cream shadow-panel backdrop-blur md:top-4"
     >
       {phase === 'error' ? '⚠ ' : '◌ '}
       {text}
@@ -34,13 +35,24 @@ export function ConnectionBanner() {
   );
 }
 
-/** Contextual prompt for the seat within reach (SPEC 10.1). */
+/**
+ * Contextual prompt for the seat within reach (SPEC 10.1).
+ *
+ * A phone has no E key, so on touch the prompt names the round button in the
+ * corner instead of a key that does not exist (SPEC 10.3). The button itself
+ * carries the same wording, so the two always agree.
+ */
 export function InteractionPrompt() {
   const nearbySeatId = useCafeStore((state) => state.nearbySeatId);
   const seatId = useCafeStore((state) => state.self?.seatId);
+  const touch = useMediaQuery(TOUCH_QUERY);
 
   if (seatId) {
-    return (
+    return touch ? (
+      <PromptBubble>
+        Chạm <Key>Đứng dậy</Key> để rời ghế
+      </PromptBubble>
+    ) : (
       <PromptBubble>
         Nhấn <Key>E</Key> để đứng dậy
       </PromptBubble>
@@ -48,17 +60,24 @@ export function InteractionPrompt() {
   }
   if (!nearbySeatId) return null;
   const seat = SEATS_BY_ID.get(nearbySeatId);
+  const where = tableLabel(seat?.seatGroupId);
 
-  return (
+  return touch ? (
     <PromptBubble>
-      Nhấn <Key>E</Key> để ngồi vào {tableLabel(seat?.seatGroupId)}
+      Chạm <Key>Ngồi</Key> để ngồi vào {where}
+    </PromptBubble>
+  ) : (
+    <PromptBubble>
+      Nhấn <Key>E</Key> để ngồi vào {where}
     </PromptBubble>
   );
 }
 
 function PromptBubble({ children }: { children: React.ReactNode }) {
+  // Clear of the joystick and the dock on a phone, clear of nothing much on a
+  // laptop.
   return (
-    <div className="pointer-events-none absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/15 bg-espresso/85 px-4 py-1.5 text-xs text-cream shadow-panel backdrop-blur">
+    <div className="pointer-events-none absolute bottom-[13.5rem] left-1/2 z-20 max-w-[92vw] -translate-x-1/2 text-balance rounded-full border border-white/15 bg-espresso/85 px-4 py-1.5 text-center text-xs text-cream shadow-panel backdrop-blur md:bottom-24">
       {children}
     </div>
   );
@@ -91,7 +110,7 @@ export function Toasts() {
     <div
       role={toast.tone === 'error' ? 'alert' : 'status'}
       aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
-      className={`pointer-events-auto absolute bottom-6 left-1/2 z-30 -translate-x-1/2 animate-fade-up rounded-lg border px-3 py-2 text-xs shadow-panel backdrop-blur ${
+      className={`pointer-events-auto absolute bottom-[13.5rem] left-1/2 z-30 max-w-[92vw] -translate-x-1/2 animate-fade-up rounded-lg border px-3 py-2 text-center text-xs shadow-panel backdrop-blur md:bottom-6 ${
         toast.tone === 'error'
           ? 'border-[#a8584a]/60 bg-[#43211b]/90 text-[#f0c6bb]'
           : 'border-white/15 bg-espresso/90 text-cream'

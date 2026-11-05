@@ -17,7 +17,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`rounded-xl border border-white/10 bg-espresso/85 text-cream shadow-panel backdrop-blur-md ${className}`}
+      className={`w-full rounded-xl border border-white/10 bg-espresso/85 text-cream shadow-panel backdrop-blur-md ${className}`}
     >
       {title ? (
         <header className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
@@ -54,7 +54,7 @@ export function IconButton({
       aria-label={label}
       aria-pressed={active}
       className={[
-        'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-sm transition',
+        'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm transition md:h-9 md:min-w-9 md:px-2.5',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-1 focus-visible:ring-offset-espresso',
         disabled ? 'cursor-not-allowed opacity-40' : 'hover:border-caramel/70 hover:bg-white/5',
         active ? 'border-caramel bg-caramel/20 text-cream' : 'border-white/15 text-linen',
@@ -89,7 +89,7 @@ export function Slider({
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value) / 100)}
         aria-label={`${label} volume`}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-caramel disabled:opacity-40"
+        className="range-rail h-6 w-full cursor-pointer appearance-none bg-transparent accent-caramel disabled:opacity-40 md:h-1.5"
       />
       <span className="w-8 shrink-0 text-right tabular-nums text-linen/60">{percent}</span>
     </label>
@@ -113,7 +113,7 @@ export function Toggle({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 accent-caramel"
+        className="mt-0.5 h-5 w-5 shrink-0 accent-caramel md:h-4 md:w-4"
       />
       <span>
         <span className="font-medium">{label}</span>

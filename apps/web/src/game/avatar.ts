@@ -189,7 +189,11 @@ export function drawAvatar(ctx: CanvasRenderingContext2D, state: AvatarRenderSta
  * Name plate with status and microphone state. Every signal is shape + text as
  * well as colour, so the UI never depends on colour alone (SPEC 10.2, 16.3).
  */
-export function drawNamePlate(ctx: CanvasRenderingContext2D, state: AvatarRenderState): void {
+export function drawNamePlate(
+  ctx: CanvasRenderingContext2D,
+  state: AvatarRenderState,
+  worldScale = 1,
+): void {
   const origin = worldToScreen(state.x, state.y);
   const top = origin.y - (state.seated ? 72 : 80);
 
@@ -197,13 +201,21 @@ export function drawNamePlate(ctx: CanvasRenderingContext2D, state: AvatarRender
   const micGlyph = state.mutedByViewer ? '⊘' : state.micOn ? '●' : state.inVoiceGroup ? '◦' : '';
   const text = `${label}${micGlyph ? ` ${micGlyph}` : ''}`;
 
+  // A name is read, not looked at: when the room zooms out on a small screen
+  // the plate cancels the zoom out again and stays the same size on glass.
+  // Everything below is therefore drawn in plate-local pixels around the
+  // avatar's head, not in world pixels.
+  ctx.save();
+  ctx.translate(origin.x, top);
+  if (worldScale !== 1) ctx.scale(1 / worldScale, 1 / worldScale);
+
   ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
   // Room for the plate text plus the status icon drawn to the left of it.
   const width = ctx.measureText(text).width + ICON_SIZE + 20;
 
   ctx.fillStyle = state.isSelf ? 'rgba(197, 139, 90, 0.92)' : 'rgba(43, 33, 28, 0.78)';
   ctx.beginPath();
-  ctx.roundRect(origin.x - width / 2, top, width, 18, 9);
+  ctx.roundRect(-width / 2, 0, width, 18, 9);
   ctx.fill();
 
   if (state.micOn && !state.mutedByViewer) {
@@ -214,15 +226,16 @@ export function drawNamePlate(ctx: CanvasRenderingContext2D, state: AvatarRender
   }
 
   const ink = state.isSelf ? '#2b211c' : PALETTE.cream;
-  const left = origin.x - width / 2 + 7;
+  const left = -width / 2 + 7;
 
-  drawStatusIcon(ctx, state, left, top + 9.5, ink);
+  drawStatusIcon(ctx, state, left, 9.5, ink);
 
   ctx.fillStyle = ink;
   ctx.textAlign = 'start';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, left + ICON_SIZE + 5, top + 9.5);
+  ctx.fillText(text, left + ICON_SIZE + 5, 9.5);
   ctx.textBaseline = 'alphabetic';
+  ctx.restore();
 }
 
 /**
