@@ -395,6 +395,7 @@ export class RealtimeGateway
     if (!payload) return;
 
     const userId = socket.data.session.sub;
+    const previousGroup = this.instances.getPlayer(userId)?.presence.voice.groupId ?? null;
     const result = this.instances.sit(userId, payload.seatId);
     if (!result.ok) {
       if (result.code === 'conflict') this.metrics.increment('seat_conflicts_total');
@@ -422,6 +423,15 @@ export class RealtimeGateway
     });
     this.markMoved(instance.id, userId);
     this.broadcastState(instance, userId);
+    // Moving table also ends the conversation at the one just left
+    // (`InstanceManager.sit` clears it), and that has to be said out loud for
+    // the same reason standing up does: the client holds the SFU room open
+    // until it is told the membership is gone, and until then it is still
+    // listening to a table its owner has walked away from.
+    if (previousGroup && previousGroup !== result.seat.seatGroupId) {
+      socket.emit(SERVER_EVENTS.voiceGroup, { groupId: null, members: [] });
+      this.broadcastVoiceGroup(instance, previousGroup);
+    }
   }
 
   @SubscribeMessage(CLIENT_EVENTS.playerStand)

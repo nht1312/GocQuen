@@ -29,6 +29,7 @@ import {
   needsScreenRoom,
 } from '@/voice/screenShareState';
 import { ScreenShareClient } from '@/voice/screenShareClient';
+import { voiceConnectionOutlivedSeat, voiceGroupOfSeat } from '@/voice/voiceEntitlement';
 
 interface StoredSession {
   token: string;
@@ -45,6 +46,8 @@ export function useCafe() {
   const engineRef = useRef<CafeEngine | null>(null);
   const audioRef = useRef<CafeAudioEngine | null>(null);
   const voiceRef = useRef<VoiceClient | null>(null);
+  /** The table the open voice room belongs to, or null when none is open. */
+  const voiceGroupRef = useRef<string | null>(null);
   const screenRef = useRef<ScreenShareClient | null>(null);
   const [screenVideo, setScreenVideo] = useState<HTMLVideoElement | null>(null);
 
@@ -289,12 +292,32 @@ export function useCafe() {
     playUi('stand');
   }, [playUi]);
 
+  /**
+   * Close the voice room and put the UI back to "not in a conversation".
+   *
+   * Shared by every exit so none of them can forget a step: leaving the room
+   * open is what let a conversation be overheard after its table was left,
+   * and leaving `voicePhase` at 'connected' is what left the microphone
+   * toggle live for a table the person is no longer at.
+   */
+  const dropVoice = useCallback(async () => {
+    voiceGroupRef.current = null;
+    await voiceRef.current?.disconnect();
+    const state = store.getState();
+    state.setVoicePhase('off');
+    state.setMic(false);
+    state.setVoiceGroup(null, []);
+  }, [store]);
+
   const joinVoice = useCallback(async () => {
     const state = store.getState();
     if (!state.voiceAvailable) {
       state.showToast('Máy chủ này chưa cấu hình tính năng giọng nói.', 'error');
       return;
     }
+    // The table being joined, read before the first await so that a seat
+    // given up mid-join is noticed rather than papered over.
+    const joiningGroup = voiceGroupOfSeat(state.self?.seatId);
     state.setVoicePhase('connecting');
     socketRef.current?.emit(CLIENT_EVENTS.voiceJoin, {});
 
@@ -321,6 +344,17 @@ export function useCafe() {
         });
       }
       await voiceRef.current.connect(result.url, result.token);
+      voiceGroupRef.current = joiningGroup;
+
+      // The token request and the SFU handshake are two awaits long, and a
+      // seat can be given up inside them. The watcher below only fires on a
+      // seat change, so a seat that changed before the room existed would
+      // leave it open; this catches exactly that window.
+      if (voiceConnectionOutlivedSeat(joiningGroup, store.getState().self?.seatId)) {
+        await dropVoice();
+        return;
+      }
+
       voiceRef.current.setVolume(audioRef.current?.voiceVolume() ?? 1);
       for (const muted of store.getState().mutedUsers) {
         voiceRef.current.setParticipantMuted(muted, true);
@@ -332,15 +366,13 @@ export function useCafe() {
         .getState()
         .showToast(error instanceof Error ? error.message : 'Không thể tham gia cuộc trò chuyện.', 'error');
     }
-  }, [store]);
+  }, [dropVoice, store]);
 
   const leaveVoice = useCallback(async () => {
     socketRef.current?.emit(CLIENT_EVENTS.voiceLeave, {});
-    await voiceRef.current?.disconnect();
-    store.getState().setVoicePhase('off');
-    store.getState().setMic(false);
+    await dropVoice();
     playUi('mic_off');
-  }, [playUi, store]);
+  }, [dropVoice, playUi]);
 
   /** The microphone only ever changes on an explicit action (SPEC 14.2). */
   const toggleMic = useCallback(async () => {
@@ -531,6 +563,26 @@ export function useCafe() {
   const screenLocal = useCafeStore((state) => state.screenShareLocal);
   const selfSeatId = useCafeStore((state) => state.self?.seatId ?? null);
   const selfUserId = useCafeStore((state) => state.self?.userId ?? null);
+
+  /**
+   * A voice room never outlives the seat that justified it.
+   *
+   * Standing up ends the entitlement on the server, which drops the
+   * membership and tells everyone — but the SFU room is this browser's, and
+   * no presence update closes it. Until it is closed the audio keeps
+   * arriving, so someone who stood up and walked away could still hear the
+   * table, and with `voicePhase` still 'connected' could still switch their
+   * microphone on and talk into it.
+   *
+   * Watching the seat rather than the stand button covers every way of
+   * leaving a table: the button, tapping a chair at another table (which
+   * never passes through "standing" at all), and a correction the server
+   * makes on its own.
+   */
+  useEffect(() => {
+    if (!voiceConnectionOutlivedSeat(voiceGroupRef.current, selfSeatId)) return;
+    void dropVoice();
+  }, [dropVoice, selfSeatId]);
 
   useEffect(() => {
     const view = deriveScreenShareView({
