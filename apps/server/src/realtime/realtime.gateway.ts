@@ -29,7 +29,12 @@ import {
   voiceStateSchema,
 } from '@virtual-cafe/shared';
 import { SessionClaims, SessionService } from '../auth/session.service';
-import { ScreenShareEndReason, ScreenShareService, ScreenShareSession } from '../voice/screen-share.service';
+import {
+  ScreenShareEndReason,
+  ScreenShareObserver,
+  ScreenShareService,
+  ScreenShareSession,
+} from '../voice/screen-share.service';
 import { RateLimiter } from '../common/rate-limiter';
 import { AppConfig } from '../config/app-config';
 import { MetricsService } from '../metrics/metrics.service';
@@ -88,7 +93,12 @@ function socketOriginAllowed(
   transports: ['websocket', 'polling'],
 })
 export class RealtimeGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleDestroy,
+    ScreenShareObserver
 {
   private readonly logger = new Logger(RealtimeGateway.name);
 
@@ -117,6 +127,11 @@ export class RealtimeGateway
   ) {}
 
   afterInit(server: Server): void {
+    // Every start and stop reaches the table through here, whichever door it
+    // came in by — the REST endpoints the web client uses, the socket events,
+    // or a lifecycle sweep. See `ScreenShareObserver`.
+    this.screenShare.observe(this);
+
     server.engine?.on?.('connection_error', (error: Error) => {
       this.logger.warn(`Engine connection error: ${error.message}`);
     });
@@ -578,7 +593,6 @@ export class RealtimeGateway
       return;
     }
     this.metrics.increment('screen_share_starts_total');
-    this.announceStarted(result.session);
   }
 
   @SubscribeMessage(CLIENT_EVENTS.screenShareStop)
@@ -596,7 +610,6 @@ export class RealtimeGateway
       return;
     }
     this.metrics.increment('screen_share_stops_total');
-    this.announceStopped(result.session, 'manual');
   }
 
   @SubscribeMessage(CLIENT_EVENTS.screenShareRequestState)
@@ -618,14 +631,16 @@ export class RealtimeGateway
     };
   }
 
-  private announceStarted(session: ScreenShareSession): void {
+  /** @see ScreenShareObserver */
+  onScreenShareStarted(session: ScreenShareSession): void {
     const payload = this.startedPayload(session);
     for (const memberId of this.screenShare.audienceFor(session)) {
       this.socketOf(memberId)?.emit(SERVER_EVENTS.screenShareStarted, payload);
     }
   }
 
-  private announceStopped(session: ScreenShareSession, reason: ScreenShareEndReason): void {
+  /** @see ScreenShareObserver */
+  onScreenShareStopped(session: ScreenShareSession, reason: ScreenShareEndReason): void {
     const payload = {
       sessionId: session.id,
       groupId: session.groupId,
@@ -643,10 +658,11 @@ export class RealtimeGateway
    * The session is already invalid the moment the publisher stands up, changes
    * table, leaves or drops — `ScreenShareService` derives that on read. Without
    * this sweep, though, viewers would simply be left looking at a frozen last
-   * frame with no idea why. Called from each of those lifecycle points.
+   * frame with no idea why. Called from each of those lifecycle points; the
+   * announcement itself comes back through `onScreenShareStopped`, the same
+   * way a deliberate stop does.
    */
   private sweepScreenShare(userId: string, reason: ScreenShareEndReason): void {
-    const ended = this.screenShare.releaseIfStale(userId, reason);
-    if (ended) this.announceStopped(ended, reason);
+    this.screenShare.releaseIfStale(userId, reason);
   }
 }
