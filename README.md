@@ -191,6 +191,15 @@ SITE_URL=https://gocquen.vercel.app
 Both are read at **build** time, so changing either needs a redeploy. Add
 `NEXT_PUBLIC_DEMO_MODE=1` if you want the demo build.
 
+The root layout mounts Vercel Web Analytics (`<Analytics />` from
+`@vercel/analytics/next`). It is cookieless and records page views and
+routes, never an identifier that follows anyone between sites — the only kind
+of measurement this café carries. The component reports nothing outside a
+Vercel deployment, so local runs and the Render API are unaffected, but the
+data only appears once **Web Analytics is switched on for the project** in
+the Vercel dashboard (Project → Analytics → Enable). The code alone does not
+turn it on.
+
 **3. Close the loop.** Back on Render, set `CORS_ORIGINS` to the Vercel URL
 (comma separated, no trailing slash) and redeploy. In production the allow-list
 is used verbatim — anything not listed is refused, including localhost.
