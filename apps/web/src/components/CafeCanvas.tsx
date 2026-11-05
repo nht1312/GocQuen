@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import type { CafeEngine, InputState, MoveAxis } from '@/game/engine';
-import { CafeRenderer } from '@/game/renderer';
-import { useCafeStore } from '@/state/useCafeStore';
+import { useEffect, useRef } from "react";
+import type { CafeEngine, InputState, MoveAxis } from "@/game/engine";
+import { CafeRenderer } from "@/game/renderer";
+import { useCafeStore } from "@/state/useCafeStore";
 
 interface Props {
   engineRef: React.MutableRefObject<CafeEngine | null>;
@@ -18,21 +18,27 @@ interface Props {
 }
 
 const KEY_MAP: Record<string, MoveAxis> = {
-  KeyW: 'up',
-  ArrowUp: 'up',
-  KeyS: 'down',
-  ArrowDown: 'down',
-  KeyA: 'left',
-  ArrowLeft: 'left',
-  KeyD: 'right',
-  ArrowRight: 'right',
+  KeyW: "up",
+  ArrowUp: "up",
+  KeyS: "down",
+  ArrowDown: "down",
+  KeyA: "left",
+  ArrowLeft: "left",
+  KeyD: "right",
+  ArrowRight: "right",
 };
 
 /**
  * The café canvas (SPEC 10.1). React owns the panels; this element owns the
  * 2.5D world and runs its own animation loop so UI re-renders never cost frames.
  */
-export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onInteract }: Props) {
+export function CafeCanvas({
+  engineRef,
+  touchVectorRef,
+  onSit,
+  onStand,
+  onInteract,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CafeRenderer | null>(null);
   const inputRef = useRef<InputState>({
@@ -46,7 +52,7 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
     const renderer = new CafeRenderer();
@@ -68,11 +74,11 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
       renderer.resize(width, height, dpr);
     };
     resize();
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', resize);
+    window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", resize);
     // Mobile browsers slide their chrome away without firing `resize`; the
     // visual viewport is the only thing that reports it.
-    window.visualViewport?.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener("resize", resize);
 
     // Shown while the session is still being set up, so the café fades in
     // rather than sitting on a black screen (SPEC 16.1).
@@ -91,7 +97,20 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
       last = now;
       const engine = engineRef.current;
       if (engine) {
-        engine.setInput({ ...inputRef.current, vector: touchVectorRef?.current ?? null });
+        const modalOpen = Boolean(document.querySelector("dialog[open]"));
+        if (modalOpen) {
+          inputRef.current = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            vector: null,
+          };
+        }
+        engine.setInput({
+          ...inputRef.current,
+          vector: modalOpen ? null : (touchVectorRef?.current ?? null),
+        });
         engine.update(delta);
         renderer.render(ctx, engine.sceneInput());
       } else {
@@ -103,9 +122,9 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('orientationchange', resize);
-      window.visualViewport?.removeEventListener('resize', resize);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("orientationchange", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
     };
   }, [engineRef, touchVectorRef]);
 
@@ -127,7 +146,7 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
         event.preventDefault();
         return;
       }
-      if (event.code === 'KeyE' || event.code === 'Space') {
+      if (event.code === "KeyE" || event.code === "Space") {
         event.preventDefault();
         onInteract();
       }
@@ -137,16 +156,22 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
       if (key) inputRef.current[key] = false;
     };
     const releaseAll = () => {
-      inputRef.current = { up: false, down: false, left: false, right: false, vector: null };
+      inputRef.current = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        vector: null,
+      };
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('blur', releaseAll);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", releaseAll);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('blur', releaseAll);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", releaseAll);
     };
   }, [onInteract]);
 
@@ -171,7 +196,7 @@ export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onIntera
     }
     const owner = useCafeStore.getState().seatOwners[seat.seatId];
     if (owner) {
-      useCafeStore.getState().showToast('Đã có người ngồi ở đó rồi.', 'info');
+      useCafeStore.getState().showToast("Đã có người ngồi ở đó rồi.", "info");
       return;
     }
     onSit(seat.seatId);

@@ -1,22 +1,27 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { STORAGE_KEYS, normaliseDisplayName } from '@virtual-cafe/shared';
-import { useCafe } from '@/hooks/useCafe';
-import { COMPACT_QUERY, TOUCH_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
-import { readFlag, readLocal } from '@/lib/storage';
-import { useCafeStore } from '@/state/useCafeStore';
-import { AudioDock } from './AudioDock';
-import { CafeCanvas } from './CafeCanvas';
-import { ChatPanel } from './ChatPanel';
-import { DockTab, MobileDock } from './MobileDock';
-import { ConnectionBanner, InteractionPrompt, Toasts } from './Overlays';
-import { Onboarding } from './Onboarding';
-import { PeoplePanel } from './PeoplePanel';
-import { ScreenSharePanel } from './ScreenSharePanel';
-import { StatusBar } from './StatusBar';
-import { TouchControls } from './TouchControls';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { STORAGE_KEYS, normaliseDisplayName } from "@virtual-cafe/shared";
+import { useCafe } from "@/hooks/useCafe";
+import {
+  COMPACT_QUERY,
+  TOUCH_QUERY,
+  useMediaQuery,
+} from "@/hooks/useMediaQuery";
+import { readFlag, readLocal } from "@/lib/storage";
+import { useCafeStore } from "@/state/useCafeStore";
+import { AudioDock } from "./AudioDock";
+import { CafeCanvas } from "./CafeCanvas";
+import { ChatPanel } from "./ChatPanel";
+import { DonationPrompt } from "./DonationPrompt";
+import { DockTab, MobileDock } from "./MobileDock";
+import { ConnectionBanner, InteractionPrompt, Toasts } from "./Overlays";
+import { Onboarding } from "./Onboarding";
+import { PeoplePanel } from "./PeoplePanel";
+import { ScreenSharePanel } from "./ScreenSharePanel";
+import { StatusBar } from "./StatusBar";
+import { TouchControls } from "./TouchControls";
 
 /**
  * The café screen (SPEC 10.1): canvas in the middle, collapsible panels around
@@ -51,9 +56,13 @@ export function CafeShell() {
   // back to the front to provide one, unless you already have a session and
   // therefore already have a name.
   useEffect(() => {
-    const named = normaliseDisplayName(readLocal(STORAGE_KEYS.pendingName, { name: '' }).name);
-    const hasSession = Boolean(readLocal(STORAGE_KEYS.session, { token: '' }).token);
-    if (!named && !hasSession) router.replace('/');
+    const named = normaliseDisplayName(
+      readLocal(STORAGE_KEYS.pendingName, { name: "" }).name,
+    );
+    const hasSession = Boolean(
+      readLocal(STORAGE_KEYS.session, { token: "" }).token,
+    );
+    if (!named && !hasSession) router.replace("/");
   }, [router]);
 
   // Browsers only allow audio after a gesture; take the first one we get.
@@ -61,11 +70,11 @@ export function CafeShell() {
     const unlock = () => {
       void controls.ensureAudio();
     };
-    window.addEventListener('pointerdown', unlock, { once: true });
-    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
     return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
     };
   }, [controls]);
 
@@ -100,7 +109,9 @@ export function CafeShell() {
     <PeoplePanel
       onMute={controls.muteUser}
       onBlock={(userId) => void controls.blockUser(userId)}
-      onReport={(userId, reason, details) => void controls.reportUser(userId, reason, details)}
+      onReport={(userId, reason, details) =>
+        void controls.reportUser(userId, reason, details)
+      }
     />
   );
   const chatPanel = <ChatPanel onSend={controls.sendChat} embedded={compact} />;
@@ -120,6 +131,9 @@ export function CafeShell() {
       <ConnectionBanner />
       <InteractionPrompt />
       <Toasts />
+      <DonationPrompt
+        hidden={showOnboarding || screenFocused || Boolean(dockTab)}
+      />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:gap-3 sm:p-3">
         <div className="pointer-events-auto min-w-0 flex-1 md:max-w-[min(92vw,660px)]">
@@ -128,7 +142,7 @@ export function CafeShell() {
             onStand={controls.stand}
             onLeave={() => {
               void controls.leaveCafe();
-              window.location.href = '/';
+              window.location.href = "/";
             }}
             onOpenHelp={() => setShowOnboarding(true)}
           />
@@ -141,7 +155,7 @@ export function CafeShell() {
           aria-expanded={panelsOpen}
           className="pointer-events-auto hidden rounded-xl border border-white/10 bg-espresso/85 px-3 py-2 text-xs text-cream shadow-panel backdrop-blur-md hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel md:block"
         >
-          {panelsOpen ? 'Ẩn bảng điều khiển' : 'Hiện bảng điều khiển'}
+          {panelsOpen ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"}
         </button>
       </div>
 
@@ -183,12 +197,12 @@ export function CafeShell() {
 
       {screenFocused ? screenShare : null}
 
-      {phase === 'error' ? (
+      {phase === "error" ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-charcoal/80 p-6 text-center backdrop-blur">
           <div className="max-w-sm rounded-2xl border border-white/10 bg-espresso p-6 text-cream shadow-panel">
             <h2 className="text-lg font-semibold">Quán hiện đang đóng cửa</h2>
             <p className="mt-2 text-sm text-linen/75">
-              {connectionMessage ?? 'Chúng tôi không kết nối được tới máy chủ.'}
+              {connectionMessage ?? "Chúng tôi không kết nối được tới máy chủ."}
             </p>
             <button
               type="button"
@@ -201,14 +215,17 @@ export function CafeShell() {
         </div>
       ) : null}
 
-      {showOnboarding ? <Onboarding onClose={() => setShowOnboarding(false)} /> : null}
+      {showOnboarding ? (
+        <Onboarding onClose={() => setShowOnboarding(false)} />
+      ) : null}
 
       {/* The keyboard footnote, for the devices that have a keyboard. On touch
           the joystick stands in this corner and the tour has already explained
           it, so the line would be both wrong and in the way. */}
       {touch ? null : (
         <p className="pointer-events-none absolute bottom-3 left-3 hidden text-[11px] text-linen/40 md:block">
-          W A S D để đi · E để ngồi · khách quen trong quán là nhân vật nền, không phải người thật
+          W A S D để đi · E để ngồi · khách quen trong quán là nhân vật nền,
+          không phải người thật
         </p>
       )}
     </main>
