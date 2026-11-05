@@ -26,6 +26,25 @@ export type ScreenShareClaim =
   | { ok: true; session: ScreenShareSession }
   | { ok: false; code: 'forbidden' | 'conflict' | 'not_found'; message: string };
 
+/**
+ * Who to tell when a session starts or ends.
+ *
+ * There are two doors onto the publisher slot — the REST endpoints and the
+ * socket events — and for a while only one of them announced anything. The
+ * web client used the other, so a share was claimed that nobody at the table
+ * (including the publisher's own browser) was ever told about: the viewers
+ * never joined the screen room and the publisher's own client, seeing no
+ * session, tore its freshly published track straight back down.
+ *
+ * Announcing from the service rather than from either door removes the
+ * choice. Whoever claims the slot, by whatever route, the table hears it
+ * exactly once.
+ */
+export interface ScreenShareObserver {
+  onScreenShareStarted(session: ScreenShareSession): void;
+  onScreenShareStopped(session: ScreenShareSession, reason: ScreenShareEndReason): void;
+}
+
 export type ScreenShareRelease =
   | { ok: true; session: ScreenShareSession }
   | { ok: false; code: 'forbidden' | 'not_found'; message: string };
@@ -50,6 +69,18 @@ export class ScreenShareService {
 
   /** Active session per table, keyed by `instanceId::groupId`. */
   private readonly sessions = new Map<string, ScreenShareSession>();
+
+  /**
+   * Set once, by the gateway, since it is the only thing that can reach a
+   * table's sockets. Null in unit tests and before the gateway initialises,
+   * where a session simply starts without anyone to tell.
+   */
+  private observer: ScreenShareObserver | null = null;
+
+  /** Register the thing that broadcasts to tables. */
+  observe(observer: ScreenShareObserver): void {
+    this.observer = observer;
+  }
 
   constructor(
     private readonly instances: InstanceManager,
@@ -165,6 +196,9 @@ export class ScreenShareService {
     };
     this.sessions.set(key, session);
     this.logger.log(`Screen share ${session.id} started by ${userId} at ${table.groupId}`);
+    // Announced for a fresh claim only. A re-claim returns above, so a retry
+    // after a flaky network cannot make the table's panel flicker.
+    this.observer?.onScreenShareStarted(session);
     this.audit(
       this.store.recordScreenShareStart({
         id: session.id,
@@ -185,6 +219,7 @@ export class ScreenShareService {
       this.sessions.delete(key);
       this.logger.log(`Screen share ${session.id} ended (${reason})`);
       this.audit(this.store.recordScreenShareEnd(session.id, reason, Date.now()), 'end');
+      this.observer?.onScreenShareStopped(session, reason);
       return { ok: true, session };
     }
     return { ok: false, code: 'not_found', message: 'Bạn không chia sẻ màn hình' };
@@ -247,6 +282,7 @@ export class ScreenShareService {
       this.sessions.delete(key);
       this.logger.log(`Screen share ${session.id} ended (${reason})`);
       this.audit(this.store.recordScreenShareEnd(session.id, reason, Date.now()), 'end');
+      this.observer?.onScreenShareStopped(session, reason);
       return session;
     }
     return null;

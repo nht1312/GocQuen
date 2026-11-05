@@ -70,15 +70,17 @@ export class ScreenShareClient {
 
     room.on(livekit.RoomEvent.TrackSubscribed, (...args: unknown[]) => {
       const [track] = args as [TrackLike];
-      if (track.kind !== 'video') return;
       // Only one publisher per table, so the newest video is the screen.
-      this.detachCurrent();
-      const element = track.attach() as HTMLVideoElement;
-      element.autoplay = true;
-      element.muted = true; // system audio is out of scope for the MVP
-      element.playsInline = true;
-      this.attached = element;
-      this.callbacks.onTrack(element);
+      this.adopt(track);
+    });
+
+    // LiveKit only fires TrackSubscribed for *remote* tracks, so without this
+    // the one person guaranteed to care — whoever is sharing — watched a
+    // black rectangle that said "waiting for a screen" for as long as they
+    // shared, with no way to tell a working share from a broken one.
+    room.on(livekit.RoomEvent.LocalTrackPublished, (...args: unknown[]) => {
+      const [publication] = args as [{ track?: TrackLike | null }];
+      if (publication?.track) this.adopt(publication.track);
     });
 
     room.on(livekit.RoomEvent.TrackUnsubscribed, (...args: unknown[]) => {
@@ -91,6 +93,7 @@ export class ScreenShareClient {
     room.on(livekit.RoomEvent.LocalTrackUnpublished, () => {
       // Covers the browser's own "Stop sharing" button, which ends the
       // capture without going anywhere near our UI.
+      this.detachCurrent();
       this.callbacks.onLocalCaptureEnded();
     });
 
@@ -118,6 +121,24 @@ export class ScreenShareClient {
   async stopPublishing(): Promise<void> {
     if (!this.room) return;
     await this.room.localParticipant.setScreenShareEnabled(false);
+  }
+
+  /**
+   * Take a video track onto the panel, local or remote alike.
+   *
+   * Muted unconditionally: for a remote screen because system audio is out of
+   * scope for the MVP, and for the publisher's own preview because playing
+   * their own capture back at them would feed straight into a howl.
+   */
+  private adopt(track: TrackLike): void {
+    if (track.kind !== 'video') return;
+    this.detachCurrent();
+    const element = track.attach() as HTMLVideoElement;
+    element.autoplay = true;
+    element.muted = true;
+    element.playsInline = true;
+    this.attached = element;
+    this.callbacks.onTrack(element);
   }
 
   private detachCurrent(): void {
