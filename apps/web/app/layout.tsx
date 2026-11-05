@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 import {
   OG_LOCALE,
@@ -94,6 +95,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           // Static, author-controlled object — no user input is interpolated.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
+        {/*
+          Vercel Web Analytics: page views only, no cookies and no
+          cross-site identifier, which is the only kind of measurement this
+          café is willing to carry. It reports nothing anywhere but a Vercel
+          deployment, so local runs and the Render deployment are unaffected.
+
+          The `/next` entry point rather than `/react`: it reads the App
+          Router's own navigation, so a move from the landing page to /cafe
+          is recorded as a route rather than lost to the SPA transition.
+        */}
+        <Analytics />
       </body>
     </html>
   );

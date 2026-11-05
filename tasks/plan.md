@@ -167,10 +167,27 @@ Proven by running it: the server boots, routes and handlers register, the
 unseated refusal returns the right code over both HTTP and the socket, and
 16/16 smoke checks pass.
 
-**Not proven at all yet: a screen actually appearing on another person's
-screen.** That needs two browsers, a granted `getDisplayMedia` permission and
-a live LiveKit room, which headless Chrome in this environment cannot supply —
-screen capture requires a real user gesture against a real display. The
-publish/subscribe path is therefore written-but-unexercised. Task 10 closes
-as much of this as automation can; the final confirmation needs a human with
-two browser windows.
+**Now proven: a screen actually appearing on another person's screen.**
+`npm run screen-share` walks three guests to real seats, starts a share over
+the REST endpoint the web app uses, and checks who hears about it; then it
+opens a headless browser, publishes with the publisher's own token and
+subscribes with the viewer's, and asserts live frames arrive. The source
+picker itself is stood in for by a painted canvas — the picker is the
+browser's and not ours to test — but everything downstream of it now runs on
+every check.
+
+Running that for the first time found the feature broken outright, in two
+places:
+
+1. **The REST door announced nothing.** `start` and `stop` claimed and
+   released the slot without telling the table, while the socket door did.
+   The web app uses REST, so no viewer ever learned to join the screen room,
+   and the publisher's own client — seeing no session in its store — decided
+   `needsScreenRoom` was false and disconnected the track it had just
+   published. Both doors now announce through `ScreenShareService`, so
+   neither caller can forget.
+2. **The publisher never saw their own screen.** LiveKit fires
+   `TrackSubscribed` for remote tracks only, so the one person certain to be
+   looking got "Đang chờ màn hình…" over a black rectangle for the whole
+   share. `ScreenShareClient` now adopts the local track from
+   `LocalTrackPublished` as well.
