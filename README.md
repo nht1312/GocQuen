@@ -265,9 +265,32 @@ two guests at different tables and checks that the second is not told a
 session exists, cannot stop it, never receives the start event, and receives
 a token naming a different room entirely.
 
+`npm run screen-share` goes a step further and proves the whole path, SFU
+included: three guests walk to real seats, one starts a share over the same
+REST endpoint the web app uses, and the check is what the other two hear —
+the one at that table is told, the one at the next table is told nothing.
+It then opens a headless browser, publishes a stand-in capture with the
+publisher's own token and subscribes with the viewer's, and asserts that live
+frames arrive rather than a black rectangle. This is the leg no unit test can
+reach, and it is where the bug below was caught.
+
 **What this cannot do:** stop someone who is legitimately at your table from
 screenshotting or recording what they see with other software. Share
 accordingly.
+
+### Two doors, one announcement
+
+The publisher slot can be claimed over REST or over the socket, and for a
+while only the socket door announced anything. The web app uses the REST
+door, so a share was claimed that nobody was ever told about: the other
+people at the table never learned to join the screen room, and the
+publisher's own client — seeing no session — decided it did not need a
+connection and tore its freshly published track straight back down. Pressing
+**Chia sẻ màn hình** appeared to do nothing at all.
+
+Both doors now announce through `ScreenShareService` itself rather than
+either caller, so there is no longer a choice to get wrong. `npm run
+screen-share` is the regression test.
 
 ### Trying it
 
@@ -292,6 +315,7 @@ None of them takes a table id.
 | `npm test` | Unit tests for the authoritative café rules |
 | `npm run typecheck` | Type checks every workspace |
 | `npm run smoke` | End-to-end check against a running server (two real socket clients) |
+| `npm run screen-share` | Proves a shared screen reaches the table, SFU and all (needs `LIVEKIT_*`) |
 | `npm run visual` | Drives the café in headless Chrome and writes screenshots |
 | `node tools/populate.mjs 5` | Seats scripted guests so you can see a busy café |
 | `node tools/load-test.mjs 25` | Measures realtime fan-out at a given occupancy (SPEC 11.3) |
@@ -326,7 +350,7 @@ processes would be killed.
 packages/shared/     Map data, seats, isometric maths, event schemas, constants
 apps/server/         NestJS: HTTP API, Socket.IO gateway, instance authority
 apps/web/            Next.js: landing page, canvas renderer, audio, UI panels
-tools/               Smoke test and visual check harnesses
+tools/               Smoke test, screen share and visual check harnesses
 ```
 
 The shared package is the contract. The map, the seat table and the collision
