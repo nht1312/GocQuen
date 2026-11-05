@@ -20,6 +20,7 @@
     "smoke": "node tools/smoke-test.mjs",
     "screen-share": "node tools/screen-share-check.mjs",
     "visual": "node tools/visual-check.mjs",
+    "visual:mobile": "node tools/mobile-check.mjs",
     "free-ports": "node tools/free-ports.mjs"
   },
   "devDependencies": {

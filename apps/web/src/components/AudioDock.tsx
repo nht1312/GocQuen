@@ -50,7 +50,6 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
           {expanded ? 'Thu gọn' : 'Mở rộng'}
         </button>
       }
-      className="w-[290px]"
     >
       {!audioStarted || audioBlocked ? (
         <button

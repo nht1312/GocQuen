@@ -2,19 +2,41 @@
 
 import { useState } from 'react';
 import { STORAGE_KEYS } from '@virtual-cafe/shared';
+import { TOUCH_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { writeFlag } from '@/lib/storage';
 
-const STEPS = [
-  {
+/**
+ * The first two steps are the only ones that differ by device, because they
+ * are the only ones that name a control. Telling someone on a phone to press
+ * W is the fastest way to lose them (SPEC 10.3).
+ */
+const MOVE_STEPS = {
+  keyboard: {
     title: 'Đi lại trong quán',
     body: 'Dùng phím W, A, S, D hoặc các phím mũi tên để đi. Bạn không thể đi xuyên qua bàn, quầy pha chế hay người khác.',
     hint: 'W A S D',
   },
-  {
+  touch: {
+    title: 'Đi lại trong quán',
+    body: 'Kéo cần điều khiển tròn ở góc dưới bên trái để đi. Kéo càng xa thì đi càng nhanh, và bạn không thể đi xuyên qua bàn, quầy pha chế hay người khác.',
+    hint: 'Cần điều khiển góc dưới trái',
+  },
+};
+
+const SEAT_STEPS = {
+  keyboard: {
     title: 'Chọn một chỗ ngồi',
     body: 'Đứng cạnh một chiếc ghế trống rồi nhấn E, hoặc bấm chuột vào ghế. Ghế sẽ sáng lên khi bạn đã đứng đủ gần.',
     hint: 'E',
   },
+  touch: {
+    title: 'Chọn một chỗ ngồi',
+    body: 'Chạm thẳng vào một chiếc ghế trống, hoặc lại gần rồi chạm nút "Ngồi" ở góc dưới bên phải. Ghế sẽ sáng lên khi bạn đã đứng đủ gần.',
+    hint: 'Nút Ngồi',
+  },
+};
+
+const REST_STEPS = [
   {
     title: 'Cho mọi người biết bạn đang bận thế nào',
     body: 'Chọn “Đang làm việc” hoặc “Cần tập trung” trên thanh trạng thái để những người xung quanh biết có nên làm phiền bạn hay không.',
@@ -36,8 +58,11 @@ const STEPS = [
 export function Onboarding({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [dontShow, setDontShow] = useState(true);
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
+  const touch = useMediaQuery(TOUCH_QUERY);
+  const kind = touch ? 'touch' : 'keyboard';
+  const steps = [MOVE_STEPS[kind], SEAT_STEPS[kind], ...REST_STEPS];
+  const current = steps[step];
+  const isLast = step === steps.length - 1;
 
   const finish = () => {
     if (dontShow) writeFlag(STORAGE_KEYS.onboarding, true);
@@ -49,11 +74,11 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
-      className="pointer-events-auto fixed inset-0 z-40 grid place-items-center bg-charcoal/70 p-4 backdrop-blur-sm"
+      className="pointer-events-auto fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-charcoal/70 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-md animate-fade-up rounded-2xl border border-white/10 bg-espresso p-6 text-cream shadow-panel">
+      <div className="my-auto w-full max-w-md animate-fade-up rounded-2xl border border-white/10 bg-espresso p-5 text-cream shadow-panel sm:p-6">
         <p className="text-[11px] uppercase tracking-widest text-caramel">
-          Bước {step + 1}/{STEPS.length}
+          Bước {step + 1}/{steps.length}
         </p>
         <h2 id="onboarding-title" className="mt-1 text-xl font-semibold">
           {current.title}
@@ -69,7 +94,7 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
               type="checkbox"
               checked={dontShow}
               onChange={(event) => setDontShow(event.target.checked)}
-              className="h-4 w-4 accent-caramel"
+              className="h-5 w-5 accent-caramel md:h-4 md:w-4"
             />
             Không hiện lại
           </label>
@@ -77,14 +102,14 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={finish}
-              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-linen hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+              className="min-h-11 rounded-lg border border-white/15 px-4 py-1.5 text-xs text-linen hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel md:min-h-0 md:px-3"
             >
               Bỏ qua
             </button>
             <button
               type="button"
               onClick={() => (isLast ? finish() : setStep((value) => value + 1))}
-              className="rounded-lg bg-caramel px-3 py-1.5 text-xs font-medium text-espresso hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream"
+              className="min-h-11 rounded-lg bg-caramel px-4 py-1.5 text-xs font-medium text-espresso hover:bg-caramel/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream md:min-h-0 md:px-3"
             >
               {isLast ? 'Vào quán' : 'Tiếp theo'}
             </button>

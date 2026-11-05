@@ -73,10 +73,19 @@ class Cdp {
     });
   }
 
-  send(method, params = {}) {
+  /** Bounded, so a dropped DevTools response fails loudly instead of hanging. */
+  send(method, params = {}, timeoutMs = 30000) {
     const id = ++this.#id;
     return new Promise((resolve, reject) => {
-      this.#pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.#pending.delete(id);
+        reject(new Error(`${method} did not answer within ${timeoutMs}ms`));
+      }, timeoutMs);
+      const settle = (fn) => (value) => {
+        clearTimeout(timer);
+        fn(value);
+      };
+      this.#pending.set(id, { resolve: settle(resolve), reject: settle(reject) });
       this.#ws.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -155,11 +164,16 @@ async function main() {
   const logs = [];
   cdp.send('Log.enable');
 
-  // Skip onboarding so the café itself is visible.
+  // Skip onboarding so the café itself is visible, and leave a name at the
+  // door: /cafe sends nameless arrivals back to the front, so a cold profile
+  // would otherwise sit on the landing page for ever.
   await cdp.send('Page.navigate', { url: WEB_URL });
   await sleep(1500);
   await cdp.shot(join(OUT_DIR, '00-landing.png'));
   await cdp.evaluate(`localStorage.setItem('virtual-cafe.onboarding-complete','true')`);
+  await cdp.evaluate(
+    `localStorage.setItem('virtual-cafe.pending-name', JSON.stringify({ name: 'Minh' }))`,
+  );
 
   await cdp.send('Page.navigate', { url: `${WEB_URL}/cafe` });
 
@@ -177,18 +191,43 @@ async function main() {
   logs.push(`session ready: ${connected}`);
   await cdp.shot(join(OUT_DIR, '01-arrival.png'));
 
-  // Spawn is at the entrance (2.5, 16.5); the nearest solo table seat is three
-  // tiles due east. Holding D and S together walks along the world +x axis.
-  await cdp.key('KeyD', 'd', true);
-  await cdp.key('KeyS', 's', true);
-  await sleep(500);
-  await cdp.shot(join(OUT_DIR, '02-walking.png'));
-  await sleep(600);
-  await cdp.key('KeyD', 'd', false);
-  await cdp.key('KeyS', 's', false);
-  await sleep(500);
+  // Walk until a free chair is within reach. Spawn is scattered around the
+  // entrance rather than fixed (`InstanceManager.spawnPosition`), so a single
+  // hard-coded heading finds a seat on some runs and a wall on others. Each
+  // leg is also a direction the key mapping has to get right.
+  const prompt = () => cdp.evaluate("document.body.innerText.includes('để ngồi vào')");
+  const COMPASS = [
+    ['south-east', ['KeyD', 'd'], ['KeyS', 's']],
+    ['south-west', ['KeyA', 'a'], ['KeyS', 's']],
+    ['north-east', ['KeyD', 'd'], ['KeyW', 'w']],
+    ['east', ['KeyD', 'd']],
+    ['south', ['KeyS', 's']],
+    ['north-west', ['KeyA', 'a'], ['KeyW', 'w']],
+    ['west', ['KeyA', 'a']],
+    ['north', ['KeyW', 'w']],
+  ];
+
+  let reached = await prompt();
+  const walked = [];
+  let shotWalking = false;
+  for (const [name, ...keys] of COMPASS) {
+    if (reached) break;
+    for (const [code, key] of keys) await cdp.key(code, key, true);
+    await sleep(450);
+    if (!shotWalking) {
+      await cdp.shot(join(OUT_DIR, '02-walking.png'));
+      shotWalking = true;
+    }
+    await sleep(450);
+    for (const [code, key] of keys) await cdp.key(code, key, false);
+    await sleep(350);
+    reached = await prompt();
+    walked.push(`${name}${reached ? ' → seat in reach' : ''}`);
+  }
+  if (!shotWalking) await cdp.shot(join(OUT_DIR, '02-walking.png'));
   await cdp.shot(join(OUT_DIR, '03-near-seat.png'));
-  logs.push(`prompt visible: ${await cdp.evaluate("document.body.innerText.includes('để ngồi vào')")}`);
+  logs.push(`walked with the keyboard: ${walked.join(', ') || 'already beside a seat'}`);
+  logs.push(`prompt visible: ${reached}`);
 
   await cdp.hold('KeyE', 'e', 80);
   await sleep(900);

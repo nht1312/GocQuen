@@ -1,30 +1,46 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { STORAGE_KEYS, normaliseDisplayName } from '@virtual-cafe/shared';
 import { useCafe } from '@/hooks/useCafe';
+import { COMPACT_QUERY, TOUCH_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { readFlag, readLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { AudioDock } from './AudioDock';
 import { CafeCanvas } from './CafeCanvas';
 import { ChatPanel } from './ChatPanel';
+import { DockTab, MobileDock } from './MobileDock';
 import { ConnectionBanner, InteractionPrompt, Toasts } from './Overlays';
 import { Onboarding } from './Onboarding';
 import { PeoplePanel } from './PeoplePanel';
 import { ScreenSharePanel } from './ScreenSharePanel';
 import { StatusBar } from './StatusBar';
+import { TouchControls } from './TouchControls';
 
-/** The café screen (SPEC 10.1): canvas in the middle, collapsible panels around it. */
+/**
+ * The café screen (SPEC 10.1): canvas in the middle, collapsible panels around
+ * it.
+ *
+ * "Around it" only holds once there is room to be around. Below `md` the same
+ * panels move into a dock along the bottom and the room keeps the rest of the
+ * screen (SPEC 10.3); the panels themselves are the same components either
+ * way, and each is mounted exactly once, because the screen-share panel adopts
+ * a live <video> element that cannot be in two places at once.
+ */
 export function CafeShell() {
   const router = useRouter();
   const controls = useCafe();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(true);
+  const [dockTab, setDockTab] = useState<DockTab | null>(null);
+  const touchVectorRef = useRef<{ x: number; y: number } | null>(null);
   const phase = useCafeStore((state) => state.phase);
   const connectionMessage = useCafeStore((state) => state.connectionMessage);
   const seated = Boolean(useCafeStore((state) => state.self?.seatId));
   const screenFocused = useCafeStore((state) => state.screenShareFocus.focused);
+  const compact = useMediaQuery(COMPACT_QUERY);
+  const touch = useMediaQuery(TOUCH_QUERY);
 
   useEffect(() => {
     setShowOnboarding(!readFlag(STORAGE_KEYS.onboarding));
@@ -53,6 +69,12 @@ export function CafeShell() {
     };
   }, [controls]);
 
+  // A shared screen takes the whole display; a sheet left open underneath it
+  // would be waiting to reappear over the café once the share ends.
+  useEffect(() => {
+    if (screenFocused) setDockTab(null);
+  }, [screenFocused]);
+
   const interact = useCallback(() => {
     if (seated) controls.stand();
     else controls.sit();
@@ -61,15 +83,35 @@ export function CafeShell() {
   const screenShare = (
     <ScreenSharePanel
       video={controls.screenVideo}
+      embedded={compact}
       onStart={() => void controls.startScreenShare()}
       onStop={() => void controls.stopScreenShare()}
     />
   );
+  const audioDock = (
+    <AudioDock
+      onToggleMic={() => void controls.toggleMic()}
+      onJoinVoice={() => void controls.joinVoice()}
+      onLeaveVoice={() => void controls.leaveVoice()}
+      onEnableAudio={() => void controls.ensureAudio()}
+    />
+  );
+  const peoplePanel = (
+    <PeoplePanel
+      onMute={controls.muteUser}
+      onBlock={(userId) => void controls.blockUser(userId)}
+      onReport={(userId, reason, details) => void controls.reportUser(userId, reason, details)}
+    />
+  );
+  const chatPanel = <ChatPanel onSend={controls.sendChat} embedded={compact} />;
+
+  const sidePanelsVisible = !compact && panelsOpen && !screenFocused;
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-charcoal">
+    <main className="relative h-dvh w-full overflow-hidden overscroll-none bg-charcoal">
       <CafeCanvas
         engineRef={controls.engineRef}
+        touchVectorRef={touchVectorRef}
         onSit={controls.sit}
         onStand={controls.stand}
         onInteract={interact}
@@ -79,8 +121,8 @@ export function CafeShell() {
       <InteractionPrompt />
       <Toasts />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
-        <div className="pointer-events-auto max-w-[min(92vw,660px)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:gap-3 sm:p-3">
+        <div className="pointer-events-auto min-w-0 flex-1 md:max-w-[min(92vw,660px)]">
           <StatusBar
             onStatusChange={controls.setStatus}
             onStand={controls.stand}
@@ -91,11 +133,13 @@ export function CafeShell() {
             onOpenHelp={() => setShowOnboarding(true)}
           />
         </div>
+        {/* The drawer toggle belongs to the floating column; on a phone the
+            dock along the bottom does the same job with four labelled tabs. */}
         <button
           type="button"
           onClick={() => setPanelsOpen((value) => !value)}
           aria-expanded={panelsOpen}
-          className="pointer-events-auto rounded-xl border border-white/10 bg-espresso/85 px-3 py-2 text-xs text-cream shadow-panel backdrop-blur-md hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+          className="pointer-events-auto hidden rounded-xl border border-white/10 bg-espresso/85 px-3 py-2 text-xs text-cream shadow-panel backdrop-blur-md hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel md:block"
         >
           {panelsOpen ? 'Ẩn bảng điều khiển' : 'Hiện bảng điều khiển'}
         </button>
@@ -105,28 +149,36 @@ export function CafeShell() {
           until it ends or someone asks for the café back. It is rendered on
           its own below so the takeover does not depend on the panel drawer
           being open. */}
-      {panelsOpen && !screenFocused ? (
+      {sidePanelsVisible ? (
         <div className="pointer-events-none absolute bottom-3 right-3 top-20 flex w-[290px] max-w-[92vw] flex-col gap-3 overflow-y-auto">
-          <div className="pointer-events-auto">
-            <AudioDock
-              onToggleMic={() => void controls.toggleMic()}
-              onJoinVoice={() => void controls.joinVoice()}
-              onLeaveVoice={() => void controls.leaveVoice()}
-              onEnableAudio={() => void controls.ensureAudio()}
-            />
-          </div>
+          <div className="pointer-events-auto">{audioDock}</div>
           <div className="pointer-events-auto">{screenShare}</div>
-          <div className="pointer-events-auto">
-            <PeoplePanel
-              onMute={controls.muteUser}
-              onBlock={(userId) => void controls.blockUser(userId)}
-              onReport={(userId, reason, details) => void controls.reportUser(userId, reason, details)}
-            />
-          </div>
-          <div className="pointer-events-auto">
-            <ChatPanel onSend={controls.sendChat} />
-          </div>
+          <div className="pointer-events-auto">{peoplePanel}</div>
+          <div className="pointer-events-auto">{chatPanel}</div>
         </div>
+      ) : null}
+
+      {compact && !screenFocused ? (
+        <MobileDock
+          open={dockTab}
+          onOpenChange={setDockTab}
+          panels={{
+            audio: audioDock,
+            screen: screenShare,
+            people: peoplePanel,
+            chat: chatPanel,
+          }}
+        />
+      ) : null}
+
+      {/* Walking and sitting with a thumb. Hidden behind an open sheet, which
+          covers the joystick anyway, and behind a shared screen. */}
+      {touch && !screenFocused && !dockTab ? (
+        <TouchControls
+          vectorRef={touchVectorRef}
+          sidePanels={sidePanelsVisible}
+          onInteract={interact}
+        />
       ) : null}
 
       {screenFocused ? screenShare : null}
@@ -151,9 +203,14 @@ export function CafeShell() {
 
       {showOnboarding ? <Onboarding onClose={() => setShowOnboarding(false)} /> : null}
 
-      <p className="pointer-events-none absolute bottom-3 left-3 hidden text-[11px] text-linen/40 md:block">
-        W A S D để đi · E để ngồi · khách quen trong quán là nhân vật nền, không phải người thật
-      </p>
+      {/* The keyboard footnote, for the devices that have a keyboard. On touch
+          the joystick stands in this corner and the tour has already explained
+          it, so the line would be both wrong and in the way. */}
+      {touch ? null : (
+        <p className="pointer-events-none absolute bottom-3 left-3 hidden text-[11px] text-linen/40 md:block">
+          W A S D để đi · E để ngồi · khách quen trong quán là nhân vật nền, không phải người thật
+        </p>
+      )}
     </main>
   );
 }

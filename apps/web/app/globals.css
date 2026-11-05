@@ -11,6 +11,45 @@ body {
   height: 100%;
   background-color: #1d1815;
   color: #f5ece0;
+  /* No rubber-banding or pull-to-refresh: the café is a fixed screen with its
+     own scrolling panels, not a document. */
+  overscroll-behavior: none;
+}
+
+body {
+  /* A double-tap on the canvas or a panel button is a second tap, never a
+     zoom gesture. Pinch zoom is untouched. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * iOS Safari zooms the whole page in when a control with text under 16px takes
+ * focus, and never zooms back out — which on the café screen leaves the room
+ * off the edge of the display with no way back. Keeping touch-sized controls
+ * at 16px is the only fix; they shrink again where there is a real pointer.
+ */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Volume sliders: a 6px groove is a mouse target. On touch the input itself is
+ * 24px tall for the thumb to find, and the rail is painted down the middle of
+ * it so it still looks like a 6px groove.
+ */
+.range-rail {
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(50% - 3px),
+    rgba(245, 236, 224, 0.16) calc(50% - 3px),
+    rgba(245, 236, 224, 0.16) calc(50% + 3px),
+    transparent calc(50% + 3px)
+  );
 }
 
 /* Respect the OS-level setting as well as the in-app toggle (SPEC 16.3). */
@@ -40,8 +79,8 @@ body {
 
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #c58b5a;
   border: 2px solid #f5ece0;
@@ -49,10 +88,22 @@ input[type='range']::-webkit-slider-thumb {
 }
 
 input[type='range']::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #c58b5a;
   border: 2px solid #f5ece0;
   cursor: pointer;
+}
+
+@media (pointer: fine) {
+  input[type='range']::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+  }
+
+  input[type='range']::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+  }
 }

@@ -1,18 +1,23 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { CafeEngine, InputState } from '@/game/engine';
+import type { CafeEngine, InputState, MoveAxis } from '@/game/engine';
 import { CafeRenderer } from '@/game/renderer';
 import { useCafeStore } from '@/state/useCafeStore';
 
 interface Props {
   engineRef: React.MutableRefObject<CafeEngine | null>;
+  /**
+   * Live joystick deflection, written straight into a ref by the touch
+   * controls so dragging a thumb never re-renders React (SPEC 10.3).
+   */
+  touchVectorRef?: React.MutableRefObject<{ x: number; y: number } | null>;
   onSit: (seatId?: string) => void;
   onStand: () => void;
   onInteract: () => void;
 }
 
-const KEY_MAP: Record<string, keyof InputState> = {
+const KEY_MAP: Record<string, MoveAxis> = {
   KeyW: 'up',
   ArrowUp: 'up',
   KeyS: 'down',
@@ -27,10 +32,16 @@ const KEY_MAP: Record<string, keyof InputState> = {
  * The café canvas (SPEC 10.1). React owns the panels; this element owns the
  * 2.5D world and runs its own animation loop so UI re-renders never cost frames.
  */
-export function CafeCanvas({ engineRef, onSit, onStand, onInteract }: Props) {
+export function CafeCanvas({ engineRef, touchVectorRef, onSit, onStand, onInteract }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CafeRenderer | null>(null);
-  const inputRef = useRef<InputState>({ up: false, down: false, left: false, right: false });
+  const inputRef = useRef<InputState>({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    vector: null,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,6 +69,10 @@ export function CafeCanvas({ engineRef, onSit, onStand, onInteract }: Props) {
     };
     resize();
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    // Mobile browsers slide their chrome away without firing `resize`; the
+    // visual viewport is the only thing that reports it.
+    window.visualViewport?.addEventListener('resize', resize);
 
     // Shown while the session is still being set up, so the café fades in
     // rather than sitting on a black screen (SPEC 16.1).
@@ -76,7 +91,7 @@ export function CafeCanvas({ engineRef, onSit, onStand, onInteract }: Props) {
       last = now;
       const engine = engineRef.current;
       if (engine) {
-        engine.setInput(inputRef.current);
+        engine.setInput({ ...inputRef.current, vector: touchVectorRef?.current ?? null });
         engine.update(delta);
         renderer.render(ctx, engine.sceneInput());
       } else {
@@ -89,8 +104,10 @@ export function CafeCanvas({ engineRef, onSit, onStand, onInteract }: Props) {
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
     };
-  }, [engineRef]);
+  }, [engineRef, touchVectorRef]);
 
   useEffect(() => {
     const isTyping = () => {
@@ -120,7 +137,7 @@ export function CafeCanvas({ engineRef, onSit, onStand, onInteract }: Props) {
       if (key) inputRef.current[key] = false;
     };
     const releaseAll = () => {
-      inputRef.current = { up: false, down: false, left: false, right: false };
+      inputRef.current = { up: false, down: false, left: false, right: false, vector: null };
     };
 
     window.addEventListener('keydown', onKeyDown);

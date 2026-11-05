@@ -13,6 +13,7 @@ import { AvatarRenderState, drawAvatar, drawNamePlate } from './avatar';
 import { Slice, drawObjectSlice, drawSeat, drawSeatHighlight, sliceObject } from './furniture';
 import { PALETTE, WALL_HEIGHT, hash2, shade } from './palette';
 import { tilePath } from './primitives';
+import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
 
 export interface SceneInput {
   avatars: AvatarRenderState[];
@@ -44,11 +45,18 @@ export class CafeRenderer {
   private width = 0;
   private height = 0;
   private dpr = 1;
+  private scale = 1;
+  /** Viewport measured in world pixels — CSS pixels divided by the zoom. */
+  private viewWidth = 0;
+  private viewHeight = 0;
 
   resize(width: number, height: number, dpr: number): void {
     this.width = width;
     this.height = height;
     this.dpr = dpr;
+    this.scale = worldScaleFor(width, height);
+    this.viewWidth = width / this.scale;
+    this.viewHeight = height / this.scale;
   }
 
   /** Floor and static ground decals are painted once into an offscreen canvas. */
@@ -333,9 +341,10 @@ export class CafeRenderer {
     if (!this.floor) this.floor = this.buildFloor();
 
     ctx.save();
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const zoom = this.dpr * this.scale;
+    ctx.setTransform(zoom, 0, 0, zoom, 0, 0);
     ctx.fillStyle = PALETTE.espresso;
-    ctx.fillRect(0, 0, this.width, this.height);
+    ctx.fillRect(0, 0, this.viewWidth, this.viewHeight);
 
     const offset = this.cameraOffset(scene.cameraX, scene.cameraY);
     ctx.translate(offset.x, offset.y);
@@ -370,7 +379,7 @@ export class CafeRenderer {
         depth: avatar.x + avatar.y + ENTITY_DEPTH_BIAS,
         draw: (target) => {
           drawAvatar(target, avatar);
-          drawNamePlate(target, avatar);
+          drawNamePlate(target, avatar, this.scale);
         },
       });
     }
@@ -401,36 +410,30 @@ export class CafeRenderer {
    */
   private cameraOffset(cameraX: number, cameraY: number): { x: number; y: number } {
     const focus = worldToScreen(cameraX, cameraY);
-    let offsetX = this.width / 2 - focus.x;
-    let offsetY = this.height / 2 - focus.y;
+    let offsetX = this.viewWidth / 2 - focus.x;
+    let offsetY = this.viewHeight / 2 - focus.y;
 
-    const left = worldToScreen(0, MAP_HEIGHT).x;
-    const right = worldToScreen(MAP_WIDTH, 0).x;
-    const top = worldToScreen(0, 0).y - WALL_HEIGHT;
-    const bottom = worldToScreen(MAP_WIDTH, MAP_HEIGHT).y;
-    const margin = 48;
-
-    const sceneWidth = right - left + margin * 2;
-    const sceneHeight = bottom - top + margin * 2;
+    const { left, right, top, bottom, width: sceneWidth, height: sceneHeight } = sceneExtent();
+    const margin = SCENE_MARGIN;
 
     // Centre the room on any axis where it is smaller than the viewport.
-    if (sceneWidth <= this.width) offsetX = this.width / 2 - (left + right) / 2;
-    else offsetX = Math.min(-left + margin, Math.max(this.width - right - margin, offsetX));
+    if (sceneWidth <= this.viewWidth) offsetX = this.viewWidth / 2 - (left + right) / 2;
+    else offsetX = Math.min(-left + margin, Math.max(this.viewWidth - right - margin, offsetX));
 
-    if (sceneHeight <= this.height) offsetY = this.height / 2 - (top + bottom) / 2;
-    else offsetY = Math.min(-top + margin, Math.max(this.height - bottom - margin, offsetY));
+    if (sceneHeight <= this.viewHeight) offsetY = this.viewHeight / 2 - (top + bottom) / 2;
+    else offsetY = Math.min(-top + margin, Math.max(this.viewHeight - bottom - margin, offsetY));
 
     return { x: Math.round(offsetX), y: Math.round(offsetY) };
   }
 
-  /** Screen pixel position of a world point, for DOM overlays. */
+  /** CSS pixel position of a world point, for DOM overlays. */
   screenPosition(worldX: number, worldY: number, cameraX: number, cameraY: number): { x: number; y: number } {
     const offset = this.cameraOffset(cameraX, cameraY);
     const point = worldToScreen(worldX, worldY);
-    return { x: point.x + offset.x, y: point.y + offset.y };
+    return { x: (point.x + offset.x) * this.scale, y: (point.y + offset.y) * this.scale };
   }
 
-  /** Inverse of the projection, for clicks on the canvas. */
+  /** Inverse of the projection, for clicks and taps on the canvas. */
   worldAtScreen(
     screenX: number,
     screenY: number,
@@ -438,6 +441,6 @@ export class CafeRenderer {
     cameraY: number,
   ): { x: number; y: number } {
     const offset = this.cameraOffset(cameraX, cameraY);
-    return screenToWorld(screenX - offset.x, screenY - offset.y);
+    return screenToWorld(screenX / this.scale - offset.x, screenY / this.scale - offset.y);
   }
 }

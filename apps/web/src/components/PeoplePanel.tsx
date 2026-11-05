@@ -34,8 +34,8 @@ export function PeoplePanel({ onMute, onBlock, onReport }: Props) {
   const guests = rows.filter((row) => !row.isNpc);
 
   return (
-    <Panel title={`Trong quán · ${guests.length}/${capacity}`} className="w-[290px]">
-      <ul className="max-h-[42vh] space-y-1 overflow-y-auto pr-1">
+    <Panel title={`Trong quán · ${guests.length}/${capacity}`}>
+      <ul className="max-h-[46vh] space-y-1 overflow-y-auto overscroll-contain pr-1 md:max-h-[42vh]">
         {rows.map((row) => (
           <li key={row.userId} className="rounded-lg px-2 py-1.5 hover:bg-white/5">
             <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export function PeoplePanel({ onMute, onBlock, onReport }: Props) {
                   onClick={() => setOpenMenu(openMenu === row.userId ? null : row.userId)}
                   aria-label={`Tuỳ chọn cho ${row.displayName}`}
                   aria-expanded={openMenu === row.userId}
-                  className="rounded px-1.5 text-linen/60 hover:text-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+                  className="grid h-10 w-9 shrink-0 place-items-center rounded text-linen/60 hover:text-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel md:h-auto md:w-auto md:px-1.5"
                 >
                   ⋯
                 </button>
@@ -74,23 +74,23 @@ export function PeoplePanel({ onMute, onBlock, onReport }: Props) {
                 <button
                   type="button"
                   onClick={() => onMute(row.userId)}
-                  className="rounded border border-white/15 px-2 py-1 text-[11px] text-linen hover:border-caramel/70"
+                  className="min-h-10 rounded border border-white/15 px-2.5 py-1 text-[11px] text-linen hover:border-caramel/70 md:min-h-0 md:px-2"
                 >
                   {row.muted ? 'Bật tiếng lại' : 'Tắt tiếng với tôi'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setReporting(reporting === row.userId ? null : row.userId)}
-                  className="rounded border border-white/15 px-2 py-1 text-[11px] text-linen hover:border-caramel/70"
+                  className="min-h-10 rounded border border-white/15 px-2.5 py-1 text-[11px] text-linen hover:border-caramel/70 md:min-h-0 md:px-2"
                 >
-                  Report
+                  Báo cáo
                 </button>
                 <button
                   type="button"
                   onClick={() => onBlock(row.userId)}
-                  className="rounded border border-[#a8584a]/60 px-2 py-1 text-[11px] text-[#e7a99c] hover:bg-[#a8584a]/15"
+                  className="min-h-10 rounded border border-[#a8584a]/60 px-2.5 py-1 text-[11px] text-[#e7a99c] hover:bg-[#a8584a]/15 md:min-h-0 md:px-2"
                 >
-                  Block
+                  Chặn
                 </button>
               </div>
             ) : null}
@@ -131,7 +131,7 @@ export function PeoplePanel({ onMute, onBlock, onReport }: Props) {
                 />
                 <button
                   type="submit"
-                  className="rounded bg-caramel px-2 py-1 text-[11px] font-medium text-espresso hover:bg-caramel/90"
+                  className="min-h-10 rounded bg-caramel px-3 py-1 text-[11px] font-medium text-espresso hover:bg-caramel/90 md:min-h-0 md:px-2"
                 >
                   Gửi báo cáo
                 </button>
