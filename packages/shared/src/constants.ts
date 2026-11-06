@@ -64,6 +64,8 @@ export interface AudioSettings {
   muteAll: boolean;
   reducedMotion: boolean;
   focusMode: boolean;
+  /** Enhanced (Krisp) noise cancellation on our own microphone. */
+  noiseCancellation: boolean;
 }
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
@@ -77,6 +79,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   muteAll: false,
   reducedMotion: false,
   focusMode: false,
+  noiseCancellation: true,
 };
 
 /** Heartbeat/timeout budget (SPEC 16.2). */

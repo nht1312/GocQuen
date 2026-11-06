@@ -263,6 +263,7 @@ export function useCafe() {
       audioRef.current?.applySettings(state.audio);
       voiceRef.current?.setVolume(audioRef.current?.voiceVolume() ?? state.audio.voice);
       engineRef.current?.setReducedMotion(state.audio.reducedMotion);
+      void voiceRef.current?.setNoiseCancellation(state.audio.noiseCancellation ?? true);
       engineRef.current?.setMutedUsers(state.mutedUsers);
     }),
   [store]);
@@ -335,7 +336,9 @@ export function useCafe() {
           onDisconnected: () => {
             store.getState().setVoicePhase('off');
             store.getState().setMic(false);
+            store.getState().setNoiseCancellationMode(null);
           },
+          onNoiseCancellationChange: (mode) => store.getState().setNoiseCancellationMode(mode),
           onError: (message) => {
             store.getState().setVoicePhase('error');
             store.getState().showToast(message, 'error');
@@ -343,6 +346,7 @@ export function useCafe() {
           onSpeakingChange: () => undefined,
         });
       }
+      await voiceRef.current.setNoiseCancellation(store.getState().audio.noiseCancellation ?? true);
       await voiceRef.current.connect(result.url, result.token);
       voiceGroupRef.current = joiningGroup;
 

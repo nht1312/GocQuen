@@ -23,14 +23,31 @@ type RoomLike = {
   on: (event: string, handler: (...args: unknown[]) => void) => RoomLike;
   localParticipant: {
     setMicrophoneEnabled: (enabled: boolean) => Promise<unknown>;
+    getTrackPublication: (source: string) => { track?: MicTrackLike } | undefined;
   };
 };
+
+type MicTrackLike = {
+  setProcessor: (processor: unknown) => Promise<void>;
+  stopProcessor: () => Promise<void>;
+  getProcessor: () => unknown;
+};
+
+type KrispProcessorLike = { setEnabled: (enabled: boolean) => Promise<unknown> | unknown };
+
+/**
+ * 'enhanced' = Krisp model running on our microphone (LiveKit Cloud only).
+ * 'standard' = the browser's own WebRTC noise suppression, always on.
+ * 'off'      = the user switched enhanced off; standard still applies.
+ */
+export type NoiseCancellationMode = 'enhanced' | 'standard' | 'off';
 
 export interface VoiceClientCallbacks {
   onConnected: () => void;
   onDisconnected: () => void;
   onError: (message: string) => void;
   onSpeakingChange: (identities: string[]) => void;
+  onNoiseCancellationChange?: (mode: NoiseCancellationMode) => void;
 }
 
 export class VoiceClient {
@@ -39,6 +56,9 @@ export class VoiceClient {
   private volume = 1;
   private muted = new Set<string>();
   private container: HTMLElement | null = null;
+  private noiseCancellation = true;
+  private krisp: KrispProcessorLike | null = null;
+  private micSource = 'microphone';
 
   constructor(private readonly callbacks: VoiceClientCallbacks) {}
 
@@ -101,6 +121,7 @@ export class VoiceClient {
       this.callbacks.onDisconnected();
     });
 
+    this.micSource = livekit.Track.Source.Microphone;
     await room.connect(url, token);
     this.room = room;
     this.callbacks.onConnected();
@@ -110,6 +131,52 @@ export class VoiceClient {
   async setMicrophoneEnabled(enabled: boolean): Promise<void> {
     if (!this.room) throw new Error('Chưa kết nối tới kênh thoại');
     await this.room.localParticipant.setMicrophoneEnabled(enabled);
+    if (enabled) await this.applyNoiseCancellation();
+  }
+
+  /**
+   * Enhanced noise cancellation (docs.livekit.io/transport/media/noise-cancellation).
+   * Filters only what *we* send. WebRTC noiseSuppression/echoCancellation stay
+   * on underneath, so switching this off never leaves the mic raw.
+   */
+  async setNoiseCancellation(enabled: boolean): Promise<void> {
+    if (this.noiseCancellation === enabled) return;
+    this.noiseCancellation = enabled;
+    await this.applyNoiseCancellation();
+  }
+
+  private async applyNoiseCancellation(): Promise<void> {
+    const track = this.room?.localParticipant.getTrackPublication(this.micSource)?.track;
+    if (!track) return;
+    const report = this.callbacks.onNoiseCancellationChange ?? (() => undefined);
+    if (!this.noiseCancellation) {
+      if (this.krisp) await this.krisp.setEnabled(false);
+      report('off');
+      return;
+    }
+    try {
+      if (this.krisp && track.getProcessor() === this.krisp) {
+        await this.krisp.setEnabled(true);
+        report('enhanced');
+        return;
+      }
+      const krispModule = await import('@livekit/krisp-noise-filter');
+      if (!krispModule.isKrispNoiseFilterSupported()) {
+        report('standard');
+        return;
+      }
+      const processor = krispModule.KrispNoiseFilter();
+      await track.setProcessor(processor);
+      await processor.setEnabled(true);
+      this.krisp = processor as KrispProcessorLike;
+      report('enhanced');
+    } catch (error) {
+      // Package missing, unsupported browser, or not a LiveKit Cloud project.
+      console.warn('[voice] enhanced noise cancellation unavailable', error);
+      this.krisp = null;
+      await track.stopProcessor().catch(() => undefined);
+      report('standard');
+    }
   }
 
   setVolume(volume: number): void {
@@ -129,6 +196,7 @@ export class VoiceClient {
   async disconnect(): Promise<void> {
     for (const audio of this.audios) audio.element.remove();
     this.audios = [];
+    this.krisp = null;
     const room = this.room;
     this.room = null;
     await room?.disconnect().catch(() => undefined);

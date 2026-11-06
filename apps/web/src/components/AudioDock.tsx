@@ -25,6 +25,7 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
   const audioBlocked = useCafeStore((state) => state.audioBlocked);
   const micOn = useCafeStore((state) => state.micOn);
   const micError = useCafeStore((state) => state.micError);
+  const ncMode = useCafeStore((state) => state.noiseCancellationMode);
   const voicePhase = useCafeStore((state) => state.voicePhase);
   const voiceGroupId = useCafeStore((state) => state.voiceGroupId);
   const seated = Boolean(useCafeStore((state) => state.self?.seatId));
@@ -122,6 +123,18 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
               description="Làm căn phòng yên hơn và ẩn thông báo. Không thay đổi ai nghe được bạn."
               checked={audio.focusMode}
               onChange={(focusMode) => update({ focusMode })}
+            />
+            <Toggle
+              label="Lọc tiếng ồn micro"
+              description={
+                ncMode === 'enhanced'
+                  ? 'Đang lọc tiếng ồn nâng cao (Krisp) cho micro của bạn.'
+                  : ncMode === 'standard'
+                    ? 'Trình duyệt/máy chủ này chỉ hỗ trợ lọc tiếng ồn cơ bản.'
+                    : 'Lọc tiếng quạt, xe cộ, bàn phím khỏi micro của bạn. Chỉ ảnh hưởng tới tiếng bạn gửi đi.'
+              }
+              checked={audio.noiseCancellation ?? true}
+              onChange={(noiseCancellation) => update({ noiseCancellation })}
             />
             <Toggle
               label="Giảm chuyển động"

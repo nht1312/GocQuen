@@ -24,6 +24,7 @@ import {
   zoneLabelAt,
 } from '@virtual-cafe/shared';
 import { readLocal, writeLocal } from '@/lib/storage';
+import type { NoiseCancellationMode } from '@/voice/voiceClient';
 
 export type ConnectionPhase =
   | 'idle'
@@ -71,6 +72,7 @@ interface CafeState {
   voiceMembers: string[];
   micOn: boolean;
   micError: string | null;
+  noiseCancellationMode: NoiseCancellationMode | null;
 
   chat: ChatMessage[];
   unreadChat: number;
@@ -117,6 +119,7 @@ interface CafeState {
   setScreenShareFocus: (focused: boolean) => void;
   setVoiceGroup: (groupId: string | null, members: string[]) => void;
   setMic: (on: boolean, error?: string | null) => void;
+  setNoiseCancellationMode: (mode: NoiseCancellationMode | null) => void;
 
   pushChat: (message: ChatMessage) => void;
   setChatOpen: (open: boolean) => void;
@@ -160,6 +163,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   voiceMembers: [],
   micOn: false,
   micError: null,
+  noiseCancellationMode: null,
 
   chat: [],
   unreadChat: 0,
@@ -235,6 +239,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   setScreenShareFocus: (focused) => set({ screenShareFocus: chooseScreenShareFocus(focused) }),
   setVoiceGroup: (voiceGroupId, voiceMembers) => set({ voiceGroupId, voiceMembers }),
   setMic: (micOn, micError = null) => set({ micOn, micError }),
+  setNoiseCancellationMode: (noiseCancellationMode) => set({ noiseCancellationMode }),
 
   pushChat: (message) =>
     set((state) => ({

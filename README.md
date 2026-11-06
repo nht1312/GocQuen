@@ -60,6 +60,11 @@ that is missing is credentials.
 
 4. Restart the server. The `No SFU configured` warning should be gone.
 
+Enhanced microphone noise cancellation (Krisp) only works against a **LiveKit
+Cloud** project. Against a self-hosted SFU, voice still works with the
+browser's standard noise suppression — see
+[Microphone noise cancellation](#microphone-noise-cancellation).
+
 The key and secret never leave the server. The browser receives only a
 short-lived JWT scoped to one table's room — see [Voice privacy](#voice-privacy).
 
@@ -404,11 +409,47 @@ than by client behaviour:
 The background chatter you hear is a synthesised ambient layer. No one's
 microphone is ever replayed to the room (SPEC 6.2).
 
+### Microphone noise cancellation
+
+Follows <https://docs.livekit.io/transport/media/noise-cancellation/>. Two
+layers, applied only to **your own** microphone before it is sent:
+
+1. **Standard (always on).** WebRTC `noiseSuppression`, `echoCancellation`
+   and `autoGainControl` in the room's `audioCaptureDefaults`. Works with any
+   SFU and is never switched off, so the mic is never sent raw.
+2. **Enhanced (Krisp, on by default).** `@livekit/krisp-noise-filter` is set
+   as a processor on the local microphone track when the mic is turned on.
+   It removes fans, traffic, keyboards and music. Requires LiveKit Cloud and a
+   supported browser.
+
+The **Lọc tiếng ồn micro** toggle in the expanded audio panel switches the
+enhanced layer on and off without reconnecting. The choice is saved with the
+other audio preferences (`AudioSettings.noiseCancellation`). Under the toggle
+the panel says which layer is actually running:
+
+| Mode | Meaning |
+| --- | --- |
+| `enhanced` | Krisp is filtering your microphone |
+| `standard` | Krisp is unavailable here (package missing, unsupported browser, or not LiveKit Cloud) — only WebRTC suppression applies |
+| `off` | You switched enhanced off — WebRTC suppression still applies |
+
+Like `livekit-client`, the Krisp package is an **optional dependency** and
+imported lazily. If it fails to load, the client logs
+`[voice] enhanced noise cancellation unavailable` and falls back to
+`standard`; voice is never blocked by it. Nothing is applied to other
+people's audio, and the screen-share room carries no microphone, so it is
+unaffected.
+
+Code: `apps/web/src/voice/voiceClient.ts` (`setNoiseCancellation`,
+`applyNoiseCancellation`), toggle in `components/AudioDock.tsx`.
+
 ### Audio
 
 Six layers — music, café room, weather, chatter, live voice, UI — each on its
 own gain node, so muting one never touches another. Focus Mode dims the room
-and the chatter for *you*; it does not change who can hear you.
+and the chatter for *you*; it does not change who can hear you. Microphone
+noise cancellation is separate: it cleans what you *send* (see
+[Microphone noise cancellation](#microphone-noise-cancellation)).
 
 Everything except live voice is **synthesised at runtime** with the Web Audio
 API: generative chords and felt-piano notes, brown-noise room tone, espresso

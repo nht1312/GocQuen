@@ -28,6 +28,11 @@ to the spec.
 | FR-019 | Pomodoro | P2 | Not started | |
 | FR-020 | Order counter | P2 | Not started | |
 | FR-021 | Music requests | P2 | Not started | |
+| EXT-NC | Microphone noise cancellation | Extension | Done | `voice/voiceClient.ts` (`applyNoiseCancellation`), toggle in `AudioDock.tsx` |
+
+EXT-NC is not in the v1.0 spec. Standard WebRTC suppression is always on;
+enhanced Krisp filtering (LiveKit Cloud only) is on by default, can be switched
+off by the user, and falls back to standard when unavailable.
 
 ## Acceptance criteria (§17.1)
 
@@ -60,6 +65,7 @@ Every item below is covered by an automated check.
 | Block and mute work | Server filters chat delivery; the client mutes the audio element |
 | Microphone does not resume after reconnect | `join()` clears voice state on reattach |
 | No unintended recording | The voice grant sets `recorder: false`; nothing is persisted |
+| Noise cancellation touches only your own audio | Krisp runs on the local microphone track only; remote audio and the screen-share room are not processed |
 
 ## Non-functional
 
@@ -83,5 +89,6 @@ Every item below is covered by an automated check.
 | Group invite codes | Not built; finding people via the people panel is enough at this size | Yes |
 | Capacity per instance | 25, configurable, pending a load test | Yes |
 | Art style | Illustrated 2.5D, warm and low-contrast | Yes |
+| Noise cancellation | Krisp in the browser (`@livekit/krisp-noise-filter`), optional dependency, falls back to WebRTC suppression | Yes — the switch is in `AudioSettings` and the processor is set in one place |
 | Weather in the MVP | Rain on the window is in, as its own audio and visual layer | Yes |
 | Profile retention | Guests persist only a display name and avatar preset | Yes |
