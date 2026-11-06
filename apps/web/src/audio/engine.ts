@@ -32,6 +32,9 @@ const CHORD_PROGRESSION = [
 /** Pentatonic top notes so random melody choices never clash. */
 const MELODY_NOTES = [587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66];
 
+/** Background music file served from apps/web/public. */
+const BGM_URL = '/audio/bgm.mp3';
+
 export class CafeAudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -47,6 +50,9 @@ export class CafeAudioEngine {
   private sources: AudioScheduledSourceNode[] = [];
   private settings: AudioSettings | null = null;
   private weatherOn = true;
+  /** Recorded background track; while it plays, the synthesised music rests. */
+  private bgm: HTMLAudioElement | null = null;
+  private bgmActive = false;
 
   get isRunning(): boolean {
     return this.ctx?.state === 'running';
@@ -68,6 +74,36 @@ export class CafeAudioEngine {
     if (this.ctx.state === 'suspended') await this.ctx.resume();
     this.applySettings(settings);
     this.startLoops();
+    this.startBackgroundMusic();
+  }
+
+  /**
+   * Plays `/audio/bgm.mp3` on a loop through the music gain node, so the
+   * "Nhạc" slider, Mute all and the master volume still control it. If the
+   * file is missing or cannot play, the generative music keeps running.
+   */
+  private startBackgroundMusic(): void {
+    const ctx = this.ctx;
+    const target = this.layers.get('music');
+    if (!ctx || !target) return;
+    if (!this.bgm) {
+      const element = new Audio(BGM_URL);
+      element.loop = true;
+      element.preload = 'auto';
+      element.addEventListener('error', () => {
+        this.bgmActive = false;
+      });
+      ctx.createMediaElementSource(element).connect(target);
+      this.bgm = element;
+    }
+    this.bgm
+      .play()
+      .then(() => {
+        this.bgmActive = true;
+      })
+      .catch(() => {
+        this.bgmActive = false;
+      });
   }
 
   private build(): void {
@@ -201,11 +237,11 @@ export class CafeAudioEngine {
     const horizon = ctx.currentTime + LOOKAHEAD_SECONDS;
 
     while (this.nextChordAt < horizon) {
-      this.scheduleChord(this.nextChordAt);
+      if (!this.bgmActive) this.scheduleChord(this.nextChordAt);
       this.nextChordAt += 8;
     }
     while (this.nextMelodyAt < horizon) {
-      if (Math.random() < 0.55) this.scheduleMelodyNote(this.nextMelodyAt);
+      if (!this.bgmActive && Math.random() < 0.55) this.scheduleMelodyNote(this.nextMelodyAt);
       this.nextMelodyAt += 1.5 + Math.random() * 2.5;
     }
     while (this.nextAmbienceAt < horizon) {
@@ -554,6 +590,9 @@ export class CafeAudioEngine {
       }
     }
     this.sources = [];
+    this.bgm?.pause();
+    this.bgm = null;
+    this.bgmActive = false;
     await this.ctx?.close().catch(() => undefined);
     this.ctx = null;
     this.layers.clear();

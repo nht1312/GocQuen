@@ -15,7 +15,7 @@ to the spec.
 | FR-006 | Realtime presence | P0 | Done | `realtime.gateway.ts` |
 | FR-007 | Seat interaction | P0 | Done | `InstanceManager.sit` / `stand` |
 | FR-008 | Work status | P0 | Done | `StatusBar.tsx`, `InstanceManager.setStatus` |
-| FR-009 | Background music | P0 | Done (synthesised) | `audio/engine.ts` |
+| FR-009 | Background music | P0 | Done (recorded `bgm.mp3`, synthesised fallback) | `audio/engine.ts` (`startBackgroundMusic`), `public/audio/bgm.mp3` |
 | FR-010 | Café ambience | P0 | Done (synthesised) | `audio/engine.ts` |
 | FR-011 | Audio controls | P0 | Done | `AudioDock.tsx` |
 | FR-012 | Group voice | P0 | Done | `voice.service.ts`, `voice/voiceClient.ts` |
@@ -90,5 +90,6 @@ Every item below is covered by an automated check.
 | Capacity per instance | 25, configurable, pending a load test | Yes |
 | Art style | Illustrated 2.5D, warm and low-contrast | Yes |
 | Noise cancellation | Krisp in the browser (`@livekit/krisp-noise-filter`), optional dependency, falls back to WebRTC suppression | Yes — the switch is in `AudioSettings` and the processor is set in one place |
+| Background music source | Recorded loop `public/audio/bgm.mp3` when present, generative music otherwise; track licence must be cleared before public deploy (SPEC 15.4) | Yes — delete the file to return to synthesised music |
 | Weather in the MVP | Rain on the window is in, as its own audio and visual layer | Yes |
 | Profile retention | Guests persist only a display name and avatar preset | Yes |

@@ -88,7 +88,12 @@ const structuredData = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={SITE_LANG}>
-      <body className="min-h-dvh bg-charcoal font-sans text-cream antialiased">
+      {/* Browser extensions (password managers, translators, ad blockers) add
+          attributes to <body> before React hydrates; that is not our markup. */}
+      <body
+        className="min-h-dvh bg-charcoal font-sans text-cream antialiased"
+        suppressHydrationWarning
+      >
         {children}
         <script
           type="application/ld+json"

@@ -36,7 +36,7 @@ export function PeoplePanel({ onMute, onBlock, onReport }: Props) {
   return (
     <Panel title={`Trong quán · ${guests.length}/${capacity}`}>
       <ul className="max-h-[46vh] space-y-1 overflow-y-auto overscroll-contain pr-1 md:max-h-[42vh]">
-        {rows.map((row) => (
+        {guests.map((row) => (
           <li key={row.userId} className="rounded-lg px-2 py-1.5 hover:bg-white/5">
             <div className="flex items-center gap-2">
               <span aria-hidden className="grid w-4 shrink-0 place-items-center text-caramel">

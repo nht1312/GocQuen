@@ -22,6 +22,17 @@ import { PeoplePanel } from "./PeoplePanel";
 import { ScreenSharePanel } from "./ScreenSharePanel";
 import { StatusBar } from "./StatusBar";
 import { TouchControls } from "./TouchControls";
+import { TableActions } from "./TableActions";
+import { ChatModal } from "./ChatModal";
+
+type SideTab = DockTab;
+
+const SIDE_TABS: { id: SideTab; label: string }[] = [
+  { id: "audio", label: "Âm thanh" },
+  { id: "screen", label: "Màn hình" },
+  { id: "people", label: "Mọi người" },
+  { id: "chat", label: "Trò chuyện" },
+];
 
 /**
  * The café screen (SPEC 10.1): canvas in the middle, collapsible panels around
@@ -39,6 +50,11 @@ export function CafeShell() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(true);
   const [dockTab, setDockTab] = useState<DockTab | null>(null);
+  const [sideTab, setSideTab] = useState<SideTab>("audio");
+  const [chatModal, setChatModal] = useState(false);
+  const [tableAnchor, setTableAnchor] = useState<{ x: number; y: number } | null>(null);
+  const overActionsRef = useRef(false);
+  const hideTimerRef = useRef<number | null>(null);
   const touchVectorRef = useRef<{ x: number; y: number } | null>(null);
   const phase = useCafeStore((state) => state.phase);
   const connectionMessage = useCafeStore((state) => state.connectionMessage);
@@ -84,6 +100,38 @@ export function CafeShell() {
     if (screenFocused) setDockTab(null);
   }, [screenFocused]);
 
+  // Standing up takes the table — and its actions — away.
+  useEffect(() => {
+    if (!seated) {
+      setTableAnchor(null);
+      setChatModal(false);
+    }
+  }, [seated]);
+
+  const onOwnTableHover = useCallback((anchor: { x: number; y: number } | null) => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    if (anchor) {
+      setTableAnchor(anchor);
+      return;
+    }
+    // A short grace so the pointer can travel from the table to the icons.
+    hideTimerRef.current = window.setTimeout(() => {
+      if (!overActionsRef.current) setTableAnchor(null);
+    }, 350);
+  }, []);
+
+  const openScreenTab = useCallback(() => {
+    setTableAnchor(null);
+    if (compact) setDockTab("screen");
+    else {
+      setPanelsOpen(true);
+      setSideTab("screen");
+    }
+  }, [compact]);
+
   const interact = useCallback(() => {
     if (seated) controls.stand();
     else controls.sit();
@@ -126,7 +174,24 @@ export function CafeShell() {
         onSit={controls.sit}
         onStand={controls.stand}
         onInteract={interact}
+        onOwnTableHover={seated && !screenFocused ? onOwnTableHover : undefined}
       />
+
+      {tableAnchor && seated && !screenFocused && !chatModal ? (
+        <TableActions
+          anchor={tableAnchor}
+          onChat={() => {
+            setTableAnchor(null);
+            setDockTab(null);
+            setChatModal(true);
+          }}
+          onScreen={openScreenTab}
+          onHoverChange={(hovering) => {
+            overActionsRef.current = hovering;
+            if (!hovering) onOwnTableHover(null);
+          }}
+        />
+      ) : null}
 
       <ConnectionBanner />
       <InteractionPrompt />
@@ -164,15 +229,50 @@ export function CafeShell() {
           its own below so the takeover does not depend on the panel drawer
           being open. */}
       {sidePanelsVisible ? (
-        <div className="pointer-events-none absolute bottom-3 right-3 top-20 flex w-[290px] max-w-[92vw] flex-col gap-3 overflow-y-auto">
-          <div className="pointer-events-auto">{audioDock}</div>
-          <div className="pointer-events-auto">{screenShare}</div>
-          <div className="pointer-events-auto">{peoplePanel}</div>
-          <div className="pointer-events-auto">{chatPanel}</div>
+        <div className="pointer-events-none absolute bottom-3 right-3 top-20 flex w-[300px] max-w-[92vw] flex-col gap-2">
+          {/* One section at a time: the column never grows past the screen
+              and nothing has to scroll under the others. */}
+          <div
+            role="tablist"
+            aria-label="Bảng điều khiển"
+            className="pointer-events-auto grid shrink-0 grid-cols-4 gap-1 rounded-xl border border-white/10 bg-espresso/85 p-1 shadow-panel backdrop-blur-md"
+          >
+            {SIDE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={sideTab === tab.id}
+                onClick={() => setSideTab(tab.id)}
+                className={`truncate rounded-lg px-1 py-1.5 text-[11px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel ${
+                  sideTab === tab.id
+                    ? "bg-caramel/25 text-cream"
+                    : "text-linen/70 hover:bg-white/5 hover:text-cream"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" className="pointer-events-auto min-h-0 overflow-y-auto overscroll-contain">
+            {sideTab === "audio" ? audioDock : null}
+            {sideTab === "screen" && !screenFocused ? (
+              <ScreenSharePanel
+                video={controls.screenVideo}
+                embedded
+                onStart={() => void controls.startScreenShare()}
+                onStop={() => void controls.stopScreenShare()}
+              />
+            ) : null}
+            {sideTab === "people" ? peoplePanel : null}
+            {sideTab === "chat" && !chatModal ? (
+              <ChatPanel onSend={controls.sendChat} embedded />
+            ) : null}
+          </div>
         </div>
       ) : null}
 
-      {compact && !screenFocused ? (
+      {compact && !screenFocused && !chatModal ? (
         <MobileDock
           open={dockTab}
           onOpenChange={setDockTab}
@@ -196,6 +296,10 @@ export function CafeShell() {
       ) : null}
 
       {screenFocused ? screenShare : null}
+
+      {chatModal ? (
+        <ChatModal onSend={controls.sendChat} onClose={() => setChatModal(false)} />
+      ) : null}
 
       {phase === "error" ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-charcoal/80 p-6 text-center backdrop-blur">

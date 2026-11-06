@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { MAP_OBJECTS, SEATS_BY_ID, SEAT_DEFINITIONS } from "@virtual-cafe/shared";
 import type { CafeEngine, InputState, MoveAxis } from "@/game/engine";
 import { CafeRenderer } from "@/game/renderer";
 import { useCafeStore } from "@/state/useCafeStore";
@@ -15,6 +16,38 @@ interface Props {
   onSit: (seatId?: string) => void;
   onStand: () => void;
   onInteract: () => void;
+  /**
+   * The pointer is over the table the player is sitting at (screen position of
+   * its centre, in CSS px), or has left it (null).
+   */
+  onOwnTableHover?: (anchor: { x: number; y: number } | null) => void;
+}
+
+/** True when a world point is on the given table or one of its seats. */
+function onTable(groupId: string, x: number, y: number): boolean {
+  const table = MAP_OBJECTS.find((object) => object.id === `table_${groupId}`);
+  if (
+    table &&
+    x >= table.x &&
+    x < table.x + table.w &&
+    y >= table.y &&
+    y < table.y + table.h
+  )
+    return true;
+  return SEAT_DEFINITIONS.some(
+    (seat) =>
+      seat.seatGroupId === groupId &&
+      x >= seat.x &&
+      x < seat.x + 1 &&
+      y >= seat.y &&
+      y < seat.y + 1,
+  );
+}
+
+function tableCentre(groupId: string): { x: number; y: number } | null {
+  const table = MAP_OBJECTS.find((object) => object.id === `table_${groupId}`);
+  if (!table) return null;
+  return { x: table.x + table.w / 2, y: table.y + table.h / 2 };
 }
 
 const KEY_MAP: Record<string, MoveAxis> = {
@@ -38,7 +71,9 @@ export function CafeCanvas({
   onSit,
   onStand,
   onInteract,
+  onOwnTableHover,
 }: Props) {
+  const hoveringRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CafeRenderer | null>(null);
   const inputRef = useRef<InputState>({
@@ -175,11 +210,54 @@ export function CafeCanvas({
     };
   }, [onInteract]);
 
+  /** Own table under the pointer → its anchor on screen; otherwise null. */
+  const ownTableAt = (clientX: number, clientY: number) => {
+    const engine = engineRef.current;
+    const canvas = canvasRef.current;
+    const renderer = rendererRef.current;
+    if (!engine || !canvas || !renderer) return null;
+    const seatId = useCafeStore.getState().self?.seatId;
+    const groupId = seatId ? SEATS_BY_ID.get(seatId)?.seatGroupId : undefined;
+    if (!groupId) return null;
+    const rect = canvas.getBoundingClientRect();
+    const camera = engine.cameraTarget();
+    const world = renderer.worldAtScreen(
+      clientX - rect.left,
+      clientY - rect.top,
+      camera.x,
+      camera.y,
+    );
+    if (!onTable(groupId, world.x, world.y)) return null;
+    const centre = tableCentre(groupId);
+    if (!centre) return null;
+    return renderer.screenPosition(centre.x, centre.y, camera.x, camera.y);
+  };
+
+  const handleMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!onOwnTableHover || event.pointerType === "touch") return;
+    const anchor = ownTableAt(event.clientX, event.clientY);
+    if (Boolean(anchor) === hoveringRef.current) return;
+    hoveringRef.current = Boolean(anchor);
+    onOwnTableHover(anchor);
+  };
+
+  const handleLeave = () => {
+    if (!hoveringRef.current) return;
+    hoveringRef.current = false;
+    onOwnTableHover?.(null);
+  };
+
   const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const engine = engineRef.current;
     const canvas = canvasRef.current;
     const renderer = rendererRef.current;
     if (!engine || !canvas || !renderer) return;
+    // Touch has no hover: a tap on your own table shows the same actions.
+    const tableAnchor = ownTableAt(event.clientX, event.clientY);
+    if (tableAnchor && onOwnTableHover) {
+      onOwnTableHover(tableAnchor);
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
     const camera = engine.cameraTarget();
     const world = renderer.worldAtScreen(
@@ -206,6 +284,8 @@ export function CafeCanvas({
     <canvas
       ref={canvasRef}
       onClick={handleClick}
+      onPointerMove={handleMove}
+      onPointerLeave={handleLeave}
       className="block h-full w-full cursor-pointer touch-none"
       aria-label="Sàn quán cà phê. Dùng phím W, A, S, D hoặc các phím mũi tên để đi, và nhấn E để ngồi xuống."
       role="application"

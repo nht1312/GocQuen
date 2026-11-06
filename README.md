@@ -460,6 +460,29 @@ licensing ambiguity. To use licensed stems instead, replace the generators
 behind the existing gain nodes in `apps/web/src/audio/engine.ts`; the mixing,
 controls and persistence stay as they are.
 
+#### Recorded background music (`bgm.mp3`)
+
+If `apps/web/public/audio/bgm.mp3` exists, it is played on a loop as the music
+layer and the generative chords and melody rest while it plays. It is routed
+through the same music gain node, so the **Nhạc** slider, **Tổng** and **Tắt
+tất cả** control it exactly as before. If the file is missing or fails to play,
+the engine falls back to the synthesised music automatically. Ambience,
+weather and chatter are unchanged.
+
+- To change the track, replace `bgm.mp3` (the URL is `BGM_URL` in
+  `audio/engine.ts`). To go back to fully synthesised music, delete the file.
+- **Keep it small.** Every guest streams it. Mono 64 kbps is plenty under the
+  room tone; a 20-minute loop is ~10 MB:
+
+  ```bash
+  ffmpeg -i source.mp3 -t 1200 -vn -map_metadata -1 -ac 1 -b:a 64k \
+    -af "afade=t=in:d=2,afade=t=out:st=1197:d=3" apps/web/public/audio/bgm.mp3
+  ```
+
+- **Licensing.** A recorded track reopens the SPEC 15.4 question that the
+  synthesised soundscape avoided. Use only music you have the right to stream
+  publicly (licensed or royalty-free) before deploying.
+
 ### Rendering
 
 A hand-written Canvas2D isometric renderer rather than a game engine, because

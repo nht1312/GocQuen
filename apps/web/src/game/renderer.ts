@@ -15,6 +15,9 @@ import { PALETTE, WALL_HEIGHT, hash2, shade } from './palette';
 import { tilePath } from './primitives';
 import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
 
+/** Name painted on the north-wall sign. */
+const SIGN_TEXT = 'GÓC QUEN';
+
 export interface SceneInput {
   avatars: AvatarRenderState[];
   /** seatId -> occupied. */
@@ -182,11 +185,19 @@ export class CafeRenderer {
       ctx.fill();
       ctx.save();
       ctx.fillStyle = PALETTE.accent;
-      ctx.font = '600 13px ui-sans-serif, system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2 - 90);
+      ctx.textBaseline = 'middle';
+      ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2 - 93);
       ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x));
-      ctx.fillText('VIRTUAL CAFÉ', 0, 4);
+      // Shrink the type until the name fits the board with a margin, so a
+      // longer or wider name never spills past the sign's edges.
+      const maxWidth = Math.hypot(b.x - a.x, b.y - a.y) - 18;
+      let size = 15;
+      do {
+        ctx.font = `700 ${size}px ui-sans-serif, system-ui, sans-serif`;
+        size -= 1;
+      } while (size > 8 && ctx.measureText(SIGN_TEXT).width > maxWidth);
+      ctx.fillText(SIGN_TEXT, 0, 0);
       ctx.restore();
       return;
     }
