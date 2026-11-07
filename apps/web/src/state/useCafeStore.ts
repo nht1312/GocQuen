@@ -25,6 +25,7 @@ import {
 } from '@virtual-cafe/shared';
 import { readLocal, writeLocal } from '@/lib/storage';
 import type { NoiseCancellationMode } from '@/voice/voiceClient';
+import type { WorldAmbience } from '@/world/ambience';
 
 export type ConnectionPhase =
   | 'idle'
@@ -73,6 +74,8 @@ interface CafeState {
   micOn: boolean;
   micError: string | null;
   noiseCancellationMode: NoiseCancellationMode | null;
+  /** Real-world time and weather outside the café window. */
+  ambience: WorldAmbience | null;
 
   chat: ChatMessage[];
   unreadChat: number;
@@ -120,6 +123,7 @@ interface CafeState {
   setVoiceGroup: (groupId: string | null, members: string[]) => void;
   setMic: (on: boolean, error?: string | null) => void;
   setNoiseCancellationMode: (mode: NoiseCancellationMode | null) => void;
+  setAmbience: (ambience: WorldAmbience) => void;
 
   pushChat: (message: ChatMessage) => void;
   setChatOpen: (open: boolean) => void;
@@ -164,6 +168,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   micOn: false,
   micError: null,
   noiseCancellationMode: null,
+  ambience: null,
 
   chat: [],
   unreadChat: 0,
@@ -240,6 +245,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   setVoiceGroup: (voiceGroupId, voiceMembers) => set({ voiceGroupId, voiceMembers }),
   setMic: (micOn, micError = null) => set({ micOn, micError }),
   setNoiseCancellationMode: (noiseCancellationMode) => set({ noiseCancellationMode }),
+  setAmbience: (ambience) => set({ ambience }),
 
   pushChat: (message) =>
     set((state) => ({

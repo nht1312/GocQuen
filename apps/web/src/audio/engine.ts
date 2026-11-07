@@ -50,6 +50,8 @@ export class CafeAudioEngine {
   private sources: AudioScheduledSourceNode[] = [];
   private settings: AudioSettings | null = null;
   private weatherOn = true;
+  /** 0..1 — how hard it is raining outside; 1 when there is no live data. */
+  private weatherIntensity = 1;
   /** Recorded background track; while it plays, the synthesised music rests. */
   private bgm: HTMLAudioElement | null = null;
   private bgmActive = false;
@@ -559,10 +561,18 @@ export class CafeAudioEngine {
     const focusDamp = settings.focusMode ? 0.35 : 1;
     ramp(this.layers.get('music')!, settings.music);
     ramp(this.layers.get('ambience')!, settings.ambience * focusDamp);
-    ramp(this.layers.get('weather')!, this.weatherOn ? settings.weather * focusDamp : 0);
+    ramp(this.layers.get('weather')!, this.weatherOn ? settings.weather * focusDamp * this.weatherIntensity : 0);
     ramp(this.layers.get('crowd')!, settings.crowd * focusDamp);
     ramp(this.layers.get('ui')!, settings.ui);
     ramp(this.layers.get('voice')!, settings.voice);
+  }
+
+  /** Rain sound follows the real weather: silent when dry, louder in a storm. */
+  setWeatherIntensity(intensity: number): void {
+    const next = Math.max(0, Math.min(1, intensity));
+    if (Math.abs(next - this.weatherIntensity) < 0.01) return;
+    this.weatherIntensity = next;
+    if (this.settings) this.applySettings(this.settings);
   }
 
   setWeatherEnabled(enabled: boolean): void {

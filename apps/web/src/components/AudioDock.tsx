@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { tableLabel } from '@virtual-cafe/shared';
 import { useCafeStore } from '@/state/useCafeStore';
 import { IconButton, Panel, Slider, Toggle } from './ui';
+import { PHASE_LABELS, WEATHER_LABELS } from '@/world/ambience';
 
 interface Props {
   onToggleMic: () => void;
@@ -26,6 +27,7 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
   const micOn = useCafeStore((state) => state.micOn);
   const micError = useCafeStore((state) => state.micError);
   const ncMode = useCafeStore((state) => state.noiseCancellationMode);
+  const ambience = useCafeStore((state) => state.ambience);
   const voicePhase = useCafeStore((state) => state.voicePhase);
   const voiceGroupId = useCafeStore((state) => state.voiceGroupId);
   const seated = Boolean(useCafeStore((state) => state.self?.seatId));
@@ -114,6 +116,13 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
           <Slider label="Nhạc" value={audio.music} onChange={(music) => update({ music })} disabled={audio.muteAll} />
           <Slider label="Tiếng quán" value={audio.ambience} onChange={(ambience) => update({ ambience })} disabled={audio.muteAll} />
           <Slider label="Tiếng mưa" value={audio.weather} onChange={(weather) => update({ weather })} disabled={audio.muteAll} />
+          {ambience?.live ? (
+            <p className="truncate text-[10px] leading-snug text-linen/55" title="Thời tiết thực bên ngoài quán">
+              Ngoài trời {ambience.locationLabel}: {WEATHER_LABELS[ambience.weather]}
+              {ambience.temperatureC !== null ? ` · ${Math.round(ambience.temperatureC)}°C` : ''} ·{' '}
+              {PHASE_LABELS[ambience.phase]}
+            </p>
+          ) : null}
           <Slider label="Tiếng rì rầm" value={audio.crowd} onChange={(crowd) => update({ crowd })} disabled={audio.muteAll} />
           <Slider label="Giọng nói" value={audio.voice} onChange={(voice) => update({ voice })} disabled={audio.muteAll} />
 

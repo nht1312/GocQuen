@@ -483,6 +483,44 @@ weather and chatter are unchanged.
   synthesised soundscape avoided. Use only music you have the right to stream
   publicly (licensed or royalty-free) before deploying.
 
+### Live time and weather
+
+The street outside the window follows the real one. `apps/web/src/world/ambience.ts`
+reads current weather, sunrise and sunset from
+[Open-Meteo](https://open-meteo.com) (free, no API key, called straight from the
+browser) every 15 minutes, and the clock every minute.
+
+| Outside | In the café |
+| --- | --- |
+| Day / dawn / dusk / night | Window sky blends smoothly between them |
+| Night | Room dims, warm lamp glow, lit windows across the street |
+| Cloud cover | Greyer sky, slightly dimmer room |
+| Drizzle / rain / storm | Rain streaks scale with precipitation |
+| Storm | Occasional lightning flash in the windows |
+| Dry | Rain sound fades out; its loudness tracks real rain |
+
+The audio panel shows a line such as *Ngoài trời TP. Hồ Chí Minh: đang mưa ·
+27°C · ban đêm*.
+
+- **Location is fixed by configuration**, never the visitor's GPS. The sky
+  follows the café's own clock (from Open-Meteo's UTC offset), so a guest in
+  another timezone sees the same evening as everyone else.
+- **Configuration** (`.env`, read at build time):
+
+  ```bash
+  NEXT_PUBLIC_LIVE_WEATHER=1            # 0 = off
+  NEXT_PUBLIC_WEATHER_LAT=10.7769
+  NEXT_PUBLIC_WEATHER_LON=106.7009
+  NEXT_PUBLIC_WEATHER_LABEL=TP. Hồ Chí Minh
+  ```
+
+- **Failure mode:** offline, service down or switched off → the original rainy
+  afternoon. The café never waits on the network.
+- **Attribution:** Open-Meteo data is CC BY 4.0; credit "Weather data by
+  Open-Meteo.com" somewhere visible before a public deploy.
+
+Tuning: night darkness is `0.42` in `drawEvening()` (`game/renderer.ts`).
+
 ### Rendering
 
 A hand-written Canvas2D isometric renderer rather than a game engine, because

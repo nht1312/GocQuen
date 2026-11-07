@@ -21,6 +21,7 @@ import { planSessionBootstrap } from '@/lib/sessionPlan';
 import { readLocal, writeLocal } from '@/lib/storage';
 import { useCafeStore } from '@/state/useCafeStore';
 import { VoiceClient } from '@/voice/voiceClient';
+import { startAmbience } from '@/world/ambience';
 import {
   SCREEN_STEP_LABEL,
   classifyScreenShareError,
@@ -257,10 +258,23 @@ export function useCafe() {
     };
   }, [playUi, store]);
 
+  // Real-world time and weather drive the window, the lighting and the rain.
+  useEffect(
+    () =>
+      startAmbience((ambience) => {
+        store.getState().setAmbience(ambience);
+        audioRef.current?.setWeatherIntensity(ambience.live ? ambience.rain : 1);
+      }),
+    [store],
+  );
+
   // Keep the soundscape in step with the controls.
   useEffect(() =>
     store.subscribe((state) => {
       audioRef.current?.applySettings(state.audio);
+      if (state.ambience) {
+        audioRef.current?.setWeatherIntensity(state.ambience.live ? state.ambience.rain : 1);
+      }
       voiceRef.current?.setVolume(audioRef.current?.voiceVolume() ?? state.audio.voice);
       engineRef.current?.setReducedMotion(state.audio.reducedMotion);
       void voiceRef.current?.setNoiseCancellation(state.audio.noiseCancellation ?? true);

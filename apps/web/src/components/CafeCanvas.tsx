@@ -147,9 +147,12 @@ export function CafeCanvas({
           vector: modalOpen ? null : (touchVectorRef?.current ?? null),
         });
         engine.update(delta);
-        renderer.render(ctx, engine.sceneInput());
+        renderer.render(ctx, {
+          ...engine.sceneInput(),
+          ambience: useCafeStore.getState().ambience,
+        });
       } else {
-        renderer.render(ctx, emptyRoom(now));
+        renderer.render(ctx, { ...emptyRoom(now), ambience: useCafeStore.getState().ambience });
       }
       frame = window.requestAnimationFrame(loop);
     };

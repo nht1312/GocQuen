@@ -28,6 +28,7 @@ to the spec.
 | FR-019 | Pomodoro | P2 | Not started | |
 | FR-020 | Order counter | P2 | Not started | |
 | FR-021 | Music requests | P2 | Not started | |
+| EXT-WX | Live time and weather | Extension | Done | `world/ambience.ts` (Open-Meteo), `renderer.ts` (`drawEvening`, window sky), `audio/engine.ts` (`setWeatherIntensity`) |
 | EXT-NC | Microphone noise cancellation | Extension | Done | `voice/voiceClient.ts` (`applyNoiseCancellation`), toggle in `AudioDock.tsx` |
 
 EXT-NC is not in the v1.0 spec. Standard WebRTC suppression is always on;
@@ -91,5 +92,6 @@ Every item below is covered by an automated check.
 | Art style | Illustrated 2.5D, warm and low-contrast | Yes |
 | Noise cancellation | Krisp in the browser (`@livekit/krisp-noise-filter`), optional dependency, falls back to WebRTC suppression | Yes — the switch is in `AudioSettings` and the processor is set in one place |
 | Background music source | Recorded loop `public/audio/bgm.mp3` when present, generative music otherwise; track licence must be cleared before public deploy (SPEC 15.4) | Yes — delete the file to return to synthesised music |
+| Live weather source | Open-Meteo, no key, fixed café location from env; falls back to the rainy-afternoon scene; attribution required (CC BY 4.0) | Yes — `NEXT_PUBLIC_LIVE_WEATHER=0` |
 | Weather in the MVP | Rain on the window is in, as its own audio and visual layer | Yes |
 | Profile retention | Guests persist only a display name and avatar preset | Yes |

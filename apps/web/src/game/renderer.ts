@@ -14,6 +14,7 @@ import { Slice, drawObjectSlice, drawSeat, drawSeatHighlight, sliceObject } from
 import { PALETTE, WALL_HEIGHT, hash2, shade } from './palette';
 import { tilePath } from './primitives';
 import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
+import type { WorldAmbience } from '@/world/ambience';
 
 /** Name painted on the north-wall sign. */
 const SIGN_TEXT = 'GÓC QUEN';
@@ -28,6 +29,37 @@ export interface SceneInput {
   reducedMotion: boolean;
   cameraX: number;
   cameraY: number;
+  /** Real-world time and weather; absent or not live = the original rainy afternoon. */
+  ambience?: WorldAmbience | null;
+}
+
+/** What the scene draws with, resolved once per frame. */
+interface Sky {
+  daylight: number;
+  rain: number;
+  cloud: number;
+  storm: boolean;
+}
+
+const DEFAULT_SKY: Sky = { daylight: 1, rain: 1, cloud: 0.6, storm: false };
+
+function skyOf(ambience: WorldAmbience | null | undefined): Sky {
+  if (!ambience?.live) return DEFAULT_SKY;
+  return {
+    daylight: ambience.daylight,
+    rain: ambience.rain,
+    cloud: ambience.cloud,
+    storm: ambience.weather === 'storm',
+  };
+}
+
+/** Blend two #rrggbb colours. */
+function mix(a: string, b: string, t: number): string {
+  const pa = Number.parseInt(a.slice(1), 16);
+  const pb = Number.parseInt(b.slice(1), 16);
+  const ch = (shift: number) =>
+    Math.round(((pa >> shift) & 0xff) * (1 - t) + ((pb >> shift) & 0xff) * t);
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
 }
 
 interface Drawable {
@@ -52,6 +84,7 @@ export class CafeRenderer {
   /** Viewport measured in world pixels — CSS pixels divided by the zoom. */
   private viewWidth = 0;
   private viewHeight = 0;
+  private sky: Sky = DEFAULT_SKY;
 
   resize(width: number, height: number, dpr: number): void {
     this.width = width;
@@ -218,24 +251,35 @@ export class CafeRenderer {
       ctx.closePath();
       ctx.clip();
 
-      // Rainy street outside: near-ground darker, sky lighter.
+      // The street outside follows the real sky: day, twilight, night; greyer
+      // under cloud. Near-ground darker, sky lighter.
+      const night = 1 - this.sky.daylight;
+      const grey = this.sky.cloud * 0.5;
       const sky = ctx.createLinearGradient(0, a.y - top, 0, a.y - bottom);
-      sky.addColorStop(0, PALETTE.outsideFar);
-      sky.addColorStop(1, PALETTE.outside);
+      sky.addColorStop(0, mix(mix(PALETTE.outsideFar, '#aab4b6', grey), '#1c2238', night));
+      sky.addColorStop(1, mix(mix(PALETTE.outside, '#8d9799', grey), '#2a2f3e', night));
       ctx.fillStyle = sky;
       ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
 
       // Suggestion of trees and buildings across the street.
-      ctx.fillStyle = 'rgba(96, 112, 104, 0.55)';
+      ctx.fillStyle = night > 0.5 ? 'rgba(28, 32, 40, 0.75)' : 'rgba(96, 112, 104, 0.55)';
       ctx.beginPath();
       ctx.ellipse((a.x + b.x) / 2, a.y - bottom - 18, 18, 14, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      if (!reducedMotion) {
+      // Lit windows across the street once it gets dark.
+      if (night > 0.35) {
+        ctx.fillStyle = `rgba(255, 206, 128, ${0.55 * night})`;
+        const seed = hash2(x * 5, 3);
+        ctx.fillRect(a.x + (b.x - a.x) * (0.2 + seed * 0.4), a.y - bottom - 30 + seed * 6, 3, 4);
+      }
+
+      const streaks = Math.round(8 * this.sky.rain);
+      if (!reducedMotion && streaks > 0) {
         // Rain streaks running down the glass (SPEC 15.5).
         ctx.strokeStyle = 'rgba(232, 240, 242, 0.5)';
         ctx.lineWidth = 1;
-        for (let i = 0; i < 6; i += 1) {
+        for (let i = 0; i < streaks; i += 1) {
           const seed = hash2(x * 13 + i, i * 7);
           const speed = 90 + seed * 70;
           const offset = ((time / 1000) * speed + seed * 200) % (top - bottom);
@@ -248,8 +292,14 @@ export class CafeRenderer {
         }
       }
 
+      // Lightning: a brief flash every so often during a storm.
+      if (this.sky.storm && !reducedMotion && time % 11000 < 140) {
+        ctx.fillStyle = 'rgba(235, 240, 255, 0.7)';
+        ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
+      }
+
       // Glass sheen.
-      ctx.fillStyle = 'rgba(185, 205, 212, 0.3)';
+      ctx.fillStyle = `rgba(185, 205, 212, ${0.3 * (1 - night * 0.6)})`;
       ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
       ctx.restore();
 
@@ -350,6 +400,7 @@ export class CafeRenderer {
 
   render(ctx: CanvasRenderingContext2D, scene: SceneInput): void {
     if (!this.floor) this.floor = this.buildFloor();
+    this.sky = skyOf(scene.ambience);
 
     ctx.save();
     const zoom = this.dpr * this.scale;
@@ -398,6 +449,34 @@ export class CafeRenderer {
     drawables.sort((a, b) => a.depth - b.depth);
     for (const drawable of drawables) drawable.draw(ctx);
 
+    ctx.restore();
+    this.drawEvening(ctx);
+  }
+
+  /**
+   * After dark the room dims and the lamps take over: a cool wash over
+   * everything, with warm pools of light kept open around the lamps. Drawn in
+   * device pixels on top of the scene, so it costs one pass per frame.
+   */
+  private drawEvening(ctx: CanvasRenderingContext2D): void {
+    const night = 1 - this.sky.daylight;
+    const dim = night * 0.42 + this.sky.cloud * 0.06 * this.sky.daylight;
+    if (dim < 0.01) return;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const w = this.width * this.dpr;
+    const h = this.height * this.dpr;
+    ctx.fillStyle = `rgba(18, 20, 38, ${dim})`;
+    ctx.fillRect(0, 0, w, h);
+    if (night > 0.05) {
+      // Warm lamplight bloom from the centre of the room.
+      ctx.globalCompositeOperation = 'lighter';
+      const glow = ctx.createRadialGradient(w / 2, h * 0.55, 0, w / 2, h * 0.55, Math.max(w, h) * 0.6);
+      glow.addColorStop(0, `rgba(255, 180, 100, ${0.12 * night})`);
+      glow.addColorStop(1, 'rgba(255, 180, 100, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+    }
     ctx.restore();
   }
 
