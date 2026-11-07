@@ -236,9 +236,26 @@ const PROPS: MapObject[] = [
   { id: 'floor_lamp', kind: 'floor_lamp', x: 19, y: 12, w: 1, h: 1, solid: true },
   { id: 'rug_lounge', kind: 'rug', x: 19, y: 13, w: 5, h: 4, solid: false, layer: -1 },
   { id: 'door_mat', kind: 'door_mat', x: 1, y: 16, w: 1, h: 2, solid: false, layer: -1 },
-  { id: 'lamp_counter', kind: 'hanging_lamp', x: 3, y: 5, w: 1, h: 1, solid: false, layer: 8 },
-  { id: 'lamp_community', kind: 'hanging_lamp', x: 9, y: 8, w: 1, h: 1, solid: false, layer: 8 },
-  { id: 'lamp_group', kind: 'hanging_lamp', x: 14, y: 8, w: 1, h: 1, solid: false, layer: 8 },
+  // Pendant lamps: one above every table, plus the order counter, the
+  // Góc Quen corner by the sign and the entrance. Placed so each lamp's centre
+  // (x + w/2, y + h/2) sits over the middle of what it lights. Not solid.
+  ...(
+    [
+      // One lamp per area, not per seat: fewer bulbs keep the ceiling calm.
+      ['lamp_counter', 2.5, 6.5],
+      ['lamp_window_left', 8, 2], // window tables 1 + 2
+      ['lamp_window_right', 16, 2], // window tables 3 + 4
+      ['lamp_solo', 5, 11], // the three solo tables
+      ['lamp_community', 9.5, 8.5],
+      ['lamp_group_a', 14.5, 6.5],
+      ['lamp_group_b', 14.5, 10.5],
+      ['lamp_lounge', 20.5, 14.5], // sofa + reading nook
+      ['lamp_goc_quen', 23, 4.5], // the corner under the sign + window nook
+      ['lamp_entrance', 1.5, 16.5],
+    ] as const
+  ).map(
+    ([id, x, y]): MapObject => ({ id, kind: 'hanging_lamp', x, y, w: 1, h: 1, solid: false, layer: 8 }),
+  ),
 ];
 
 export const WALL_DECOR: WallDecor[] = [

@@ -38,6 +38,10 @@ function npcIconPaths(): Path2D[] {
  */
 
 export interface AvatarRenderState {
+  /** Stable entity id (player or NPC), so a 3D scene can track each avatar. */
+  id?: string;
+  /** The seat this avatar occupies, when seated. */
+  seatId?: string | null;
   x: number;
   y: number;
   direction: Direction;

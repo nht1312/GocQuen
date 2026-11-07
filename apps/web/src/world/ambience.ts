@@ -23,6 +23,8 @@ export interface WorldAmbience {
   weather: WeatherKind;
   /** 0..1 — how heavy the rain is (0 when it is not raining). */
   rain: number;
+  /** Café lamps are on: 18:00 → 06:00 on the café's own clock. */
+  lightsOn: boolean;
   /** 0..1 cloud cover. */
   cloud: number;
   temperatureC: number | null;
@@ -37,6 +39,13 @@ const LOCATION_LABEL = process.env.NEXT_PUBLIC_WEATHER_LABEL ?? 'TP. Hồ Chí M
 const DISABLED = process.env.NEXT_PUBLIC_LIVE_WEATHER === '0';
 
 const REFRESH_MS = 15 * 60 * 1000;
+/** Opening hours of the lamps, minutes since midnight (café local time). */
+export const LIGHTS_ON_AT = 18 * 60;
+export const LIGHTS_OFF_AT = 6 * 60;
+
+export function lightsOnAt(minutes: number): boolean {
+  return minutes >= LIGHTS_ON_AT || minutes < LIGHTS_OFF_AT;
+}
 const TWILIGHT_MINUTES = 45;
 
 /** Open-Meteo WMO weather codes → what we can draw. */
@@ -139,6 +148,7 @@ export function currentAmbience(now = new Date()): WorldAmbience {
   return {
     daylight,
     phase,
+    lightsOn: lightsOnAt(minutes),
     weather: snapshot?.weather ?? 'clear',
     rain: snapshot?.rain ?? 0,
     cloud: snapshot?.cloud ?? 0,

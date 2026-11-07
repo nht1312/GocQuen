@@ -17,3 +17,10 @@
  * presenting, and nothing can be opened by a stray click.
  */
 export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === '1';
+
+/**
+ * Which renderer draws the café: `3d` = React Three Fiber (stylised low-poly,
+ * isometric camera), anything else = the original Canvas2D renderer. The 2D
+ * one stays the default until the 3D scene reaches feature parity.
+ */
+export const RENDERER_3D = process.env.NEXT_PUBLIC_RENDERER === '3d';

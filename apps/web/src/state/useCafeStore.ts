@@ -26,6 +26,7 @@ import {
 import { readLocal, writeLocal } from '@/lib/storage';
 import type { NoiseCancellationMode } from '@/voice/voiceClient';
 import type { WorldAmbience } from '@/world/ambience';
+import type { PersonalSource } from '@/audio/personalMusic';
 
 export type ConnectionPhase =
   | 'idle'
@@ -76,6 +77,8 @@ interface CafeState {
   noiseCancellationMode: NoiseCancellationMode | null;
   /** Real-world time and weather outside the café window. */
   ambience: WorldAmbience | null;
+  /** Focus Mode music from a link this listener pasted. Never leaves the browser. */
+  personalMusic: { source: PersonalSource; label: string } | null;
 
   chat: ChatMessage[];
   unreadChat: number;
@@ -124,6 +127,7 @@ interface CafeState {
   setMic: (on: boolean, error?: string | null) => void;
   setNoiseCancellationMode: (mode: NoiseCancellationMode | null) => void;
   setAmbience: (ambience: WorldAmbience) => void;
+  setPersonalMusic: (music: { source: PersonalSource; label: string } | null) => void;
 
   pushChat: (message: ChatMessage) => void;
   setChatOpen: (open: boolean) => void;
@@ -169,6 +173,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   micError: null,
   noiseCancellationMode: null,
   ambience: null,
+  personalMusic: null,
 
   chat: [],
   unreadChat: 0,
@@ -246,6 +251,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   setMic: (micOn, micError = null) => set({ micOn, micError }),
   setNoiseCancellationMode: (noiseCancellationMode) => set({ noiseCancellationMode }),
   setAmbience: (ambience) => set({ ambience }),
+  // Personal music only exists inside Focus Mode.
+  setPersonalMusic: (personalMusic) =>
+    set((state) => ({ personalMusic: state.audio.focusMode ? personalMusic : null })),
 
   pushChat: (message) =>
     set((state) => ({
@@ -259,7 +267,8 @@ export const useCafeStore = create<CafeState>((set, get) => ({
     set((state) => {
       const audio = { ...state.audio, ...patch };
       writeLocal(STORAGE_KEYS.audio, audio);
-      return { audio };
+      // Leaving Focus Mode ends the listener's own music.
+      return audio.focusMode ? { audio } : { audio, personalMusic: null };
     }),
 
   setAudioStarted: (audioStarted) => set({ audioStarted }),

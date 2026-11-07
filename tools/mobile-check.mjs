@@ -220,6 +220,9 @@ async function main() {
     [
       '--headless=new',
       '--disable-gpu',
+    // Software WebGL, so the 3D café (NEXT_PUBLIC_RENDERER=3d) renders headless.
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
       '--hide-scrollbars',
       '--no-first-run',
       '--mute-audio',
@@ -441,7 +444,7 @@ async function main() {
   await cdp.shot(join(OUT_DIR, '09-tablet.png'));
   note(
     `tablet: dock ${await cdp.evaluate(`Boolean(document.querySelector('nav[aria-label="Bảng điều khiển quán"]'))`)}` +
-      ` · side column ${await cdp.evaluate(`Boolean([...document.querySelectorAll('div')].find((d) => d.className.includes?.('w-[290px]')))`)}`,
+      ` · side column ${await cdp.evaluate(`Boolean([...document.querySelectorAll('div')].find((d) => d.className.includes?.('w-[300px]')))`)}`,
   );
   note(`tablet overflow: ${JSON.stringify(await cdp.evaluate(OVERFLOW_PROBE))}`);
 

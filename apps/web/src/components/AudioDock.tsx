@@ -5,6 +5,7 @@ import { tableLabel } from '@virtual-cafe/shared';
 import { useCafeStore } from '@/state/useCafeStore';
 import { IconButton, Panel, Slider, Toggle } from './ui';
 import { PHASE_LABELS, WEATHER_LABELS } from '@/world/ambience';
+import { FocusMusicRequest } from './FocusMusic';
 
 interface Props {
   onToggleMic: () => void;
@@ -133,6 +134,7 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
               checked={audio.focusMode}
               onChange={(focusMode) => update({ focusMode })}
             />
+            {audio.focusMode ? <FocusMusicRequest /> : null}
             <Toggle
               label="Lọc tiếng ồn micro"
               description={

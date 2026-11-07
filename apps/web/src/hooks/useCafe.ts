@@ -272,6 +272,7 @@ export function useCafe() {
   useEffect(() =>
     store.subscribe((state) => {
       audioRef.current?.applySettings(state.audio);
+      audioRef.current?.setPersonalMusicActive(Boolean(state.personalMusic));
       if (state.ambience) {
         audioRef.current?.setWeatherIntensity(state.ambience.live ? state.ambience.rain : 1);
       }
@@ -286,6 +287,8 @@ export function useCafe() {
 
   const setStatus = useCallback(
     (status: PlayerStatus) => {
+      // Switching to another mode ends personal Focus Mode music.
+      store.getState().setPersonalMusic(null);
       socketRef.current?.emit(CLIENT_EVENTS.playerState, { status });
     },
     [],

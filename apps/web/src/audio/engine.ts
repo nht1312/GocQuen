@@ -52,6 +52,8 @@ export class CafeAudioEngine {
   private weatherOn = true;
   /** 0..1 — how hard it is raining outside; 1 when there is no live data. */
   private weatherIntensity = 1;
+  /** The listener's own Focus Mode music is playing; the café music steps back. */
+  private personalMusic = false;
   /** Recorded background track; while it plays, the synthesised music rests. */
   private bgm: HTMLAudioElement | null = null;
   private bgmActive = false;
@@ -559,12 +561,18 @@ export class CafeAudioEngine {
     // Focus Mode dims the room and the murmur; it never changes who can hear
     // whom, only what this listener hears (SPEC 6.2).
     const focusDamp = settings.focusMode ? 0.35 : 1;
-    ramp(this.layers.get('music')!, settings.music);
+    ramp(this.layers.get('music')!, this.personalMusic ? 0 : settings.music);
     ramp(this.layers.get('ambience')!, settings.ambience * focusDamp);
     ramp(this.layers.get('weather')!, this.weatherOn ? settings.weather * focusDamp * this.weatherIntensity : 0);
     ramp(this.layers.get('crowd')!, settings.crowd * focusDamp);
     ramp(this.layers.get('ui')!, settings.ui);
     ramp(this.layers.get('voice')!, settings.voice);
+  }
+
+  setPersonalMusicActive(active: boolean): void {
+    if (active === this.personalMusic) return;
+    this.personalMusic = active;
+    if (this.settings) this.applySettings(this.settings);
   }
 
   /** Rain sound follows the real weather: silent when dry, louder in a storm. */

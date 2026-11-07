@@ -1,6 +1,7 @@
 import {
   MAP_HEIGHT,
   MAP_OBJECTS,
+  MapObject,
   MAP_WIDTH,
   SEAT_DEFINITIONS,
   SeatDefinition,
@@ -46,8 +47,19 @@ interface Sky {
 
 const DEFAULT_SKY: Sky = { daylight: 1, rain: 1, cloud: 0.6, storm: false };
 
+/** Lamps that light the room after dark, with the height of their bulb. */
+const LAMPS: Array<{ object: MapObject; bulb: number; radius: number }> = MAP_OBJECTS.filter(
+  (object) => object.kind === 'hanging_lamp' || object.kind === 'floor_lamp',
+).map((object) =>
+  object.kind === 'hanging_lamp'
+    ? { object, bulb: 140, radius: 120 }
+    : { object, bulb: 98, radius: 110 },
+);
+
 function skyOf(ambience: WorldAmbience | null | undefined): Sky {
-  if (!ambience?.live) return DEFAULT_SKY;
+  if (!ambience) return DEFAULT_SKY;
+  // Without live weather the clock still sets day and night.
+  if (!ambience.live) return { ...DEFAULT_SKY, daylight: ambience.daylight };
   return {
     daylight: ambience.daylight,
     rain: ambience.rain,
@@ -88,6 +100,9 @@ export class CafeRenderer {
   private viewWidth = 0;
   private viewHeight = 0;
   private sky: Sky = DEFAULT_SKY;
+  /** 0..1, eased towards the lamps' on/off state so switching never pops. */
+  private lampLevel = 0;
+  private lastFrame = 0;
 
   resize(width: number, height: number, dpr: number): void {
     this.width = width;
@@ -556,6 +571,10 @@ export class CafeRenderer {
   render(ctx: CanvasRenderingContext2D, scene: SceneInput): void {
     if (!this.floor) this.floor = this.buildFloor();
     this.sky = skyOf(scene.ambience);
+    const target = scene.ambience?.lightsOn ? 1 : 0;
+    const dt = this.lastFrame ? Math.min(0.1, (scene.time - this.lastFrame) / 1000) : 1;
+    this.lastFrame = scene.time;
+    this.lampLevel += (target - this.lampLevel) * (scene.reducedMotion ? 1 : Math.min(1, dt * 1.5));
 
     ctx.save();
     const zoom = this.dpr * this.scale;
@@ -605,7 +624,7 @@ export class CafeRenderer {
     for (const drawable of drawables) drawable.draw(ctx);
 
     ctx.restore();
-    this.drawEvening(ctx);
+    this.drawEvening(ctx, offset);
   }
 
   /**
@@ -613,24 +632,52 @@ export class CafeRenderer {
    * everything, with warm pools of light kept open around the lamps. Drawn in
    * device pixels on top of the scene, so it costs one pass per frame.
    */
-  private drawEvening(ctx: CanvasRenderingContext2D): void {
+  private drawEvening(ctx: CanvasRenderingContext2D, offset: { x: number; y: number }): void {
     const night = 1 - this.sky.daylight;
-    const dim = night * 0.42 + this.sky.cloud * 0.06 * this.sky.daylight;
-    if (dim < 0.01) return;
+    const lamps = this.lampLevel;
+    // With the lamps on the room is lit, so the dark wash is much lighter.
+    const dim = (night * 0.42 + this.sky.cloud * 0.06 * this.sky.daylight) * (1 - lamps * 0.55);
+    if (dim < 0.01 && lamps < 0.01) return;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const w = this.width * this.dpr;
     const h = this.height * this.dpr;
-    ctx.fillStyle = `rgba(18, 20, 38, ${dim})`;
-    ctx.fillRect(0, 0, w, h);
-    if (night > 0.05) {
-      // Warm lamplight bloom from the centre of the room.
-      ctx.globalCompositeOperation = 'lighter';
-      const glow = ctx.createRadialGradient(w / 2, h * 0.55, 0, w / 2, h * 0.55, Math.max(w, h) * 0.6);
-      glow.addColorStop(0, `rgba(255, 180, 100, ${0.12 * night})`);
-      glow.addColorStop(1, 'rgba(255, 180, 100, 0)');
-      ctx.fillStyle = glow;
+    const zoom = this.scale * this.dpr;
+    if (dim >= 0.01) {
+      ctx.fillStyle = `rgba(18, 20, 38, ${dim})`;
       ctx.fillRect(0, 0, w, h);
+    }
+    if (lamps >= 0.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      // Overall warm fill so the whole room reads as lamp-lit.
+      ctx.fillStyle = `rgba(255, 170, 90, ${0.035 * lamps})`;
+      ctx.fillRect(0, 0, w, h);
+      for (const lamp of LAMPS) {
+        const cx = lamp.object.x + lamp.object.w / 2;
+        const cy = lamp.object.y + lamp.object.h / 2;
+        const floor = worldToScreen(cx, cy);
+        const fx = (floor.x + offset.x) * zoom;
+        const fy = (floor.y + offset.y) * zoom;
+        const r = lamp.radius * zoom;
+        // Pool of light on the floor and furniture below the lamp.
+        const pool = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
+        pool.addColorStop(0, `rgba(255, 196, 120, ${0.18 * lamps})`);
+        pool.addColorStop(0.5, `rgba(255, 170, 90, ${0.08 * lamps})`);
+        pool.addColorStop(1, 'rgba(255, 170, 90, 0)');
+        ctx.fillStyle = pool;
+        ctx.beginPath();
+        ctx.ellipse(fx, fy, r, r * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Halo around the bulb itself.
+        const by = fy - lamp.bulb * zoom;
+        // Soft, small glow: enough to read as "on" without glaring.
+        const haloR = 20 * zoom;
+        const halo = ctx.createRadialGradient(fx, by, 0, fx, by, haloR);
+        halo.addColorStop(0, `rgba(255, 228, 180, ${0.28 * lamps})`);
+        halo.addColorStop(1, 'rgba(255, 210, 140, 0)');
+        ctx.fillStyle = halo;
+        ctx.fillRect(fx - haloR, by - haloR, haloR * 2, haloR * 2);
+      }
     }
     ctx.restore();
   }

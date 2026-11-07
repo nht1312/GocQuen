@@ -483,6 +483,8 @@ export class CafeEngine {
     for (const entity of this.entities.values()) {
       const pose = this.seatedPose(entity);
       avatars.push({
+        id: entity.id,
+        seatId: entity.seated ? this.seatIdOf(entity.id) : null,
         x: pose.x,
         y: pose.y,
         direction: pose.direction,

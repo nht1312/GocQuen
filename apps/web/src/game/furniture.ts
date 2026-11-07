@@ -284,7 +284,7 @@ export function drawObjectSlice(
       ctx.lineTo(point.x - 8, point.y - 154);
       ctx.closePath();
       ctx.fill();
-      ellipseWorld(ctx, cx, cy, 136, 15, 5, '#ffe6b8');
+      ellipseWorld(ctx, cx, cy, 136, 15, 5, '#f2d6a6');
       break;
     }
     default:
