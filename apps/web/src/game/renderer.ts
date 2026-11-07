@@ -635,8 +635,9 @@ export class CafeRenderer {
   private drawEvening(ctx: CanvasRenderingContext2D, offset: { x: number; y: number }): void {
     const night = 1 - this.sky.daylight;
     const lamps = this.lampLevel;
-    // With the lamps on the room is lit, so the dark wash is much lighter.
-    const dim = (night * 0.42 + this.sky.cloud * 0.06 * this.sky.daylight) * (1 - lamps * 0.55);
+    // Evening is warm, not dark: a light amber wash keeps the room readable,
+    // and the lamps only add small pools of light where people sit.
+    const dim = (night * 0.2 + this.sky.cloud * 0.05 * this.sky.daylight) * (1 - lamps * 0.4);
     if (dim < 0.01 && lamps < 0.01) return;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -644,13 +645,14 @@ export class CafeRenderer {
     const h = this.height * this.dpr;
     const zoom = this.scale * this.dpr;
     if (dim >= 0.01) {
-      ctx.fillStyle = `rgba(18, 20, 38, ${dim})`;
+      // Warm brown, not night blue.
+      ctx.fillStyle = `rgba(62, 36, 20, ${dim})`;
       ctx.fillRect(0, 0, w, h);
     }
     if (lamps >= 0.01) {
       ctx.globalCompositeOperation = 'lighter';
       // Overall warm fill so the whole room reads as lamp-lit.
-      ctx.fillStyle = `rgba(255, 170, 90, ${0.035 * lamps})`;
+      ctx.fillStyle = `rgba(255, 176, 96, ${0.07 * lamps})`;
       ctx.fillRect(0, 0, w, h);
       for (const lamp of LAMPS) {
         const cx = lamp.object.x + lamp.object.w / 2;
@@ -658,7 +660,8 @@ export class CafeRenderer {
         const floor = worldToScreen(cx, cy);
         const fx = (floor.x + offset.x) * zoom;
         const fy = (floor.y + offset.y) * zoom;
-        const r = lamp.radius * zoom;
+        // Accent only: a small pool over the seats, not the whole area.
+        const r = lamp.radius * 0.6 * zoom;
         // Pool of light on the floor and furniture below the lamp.
         const pool = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
         pool.addColorStop(0, `rgba(255, 196, 120, ${0.18 * lamps})`);

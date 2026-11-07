@@ -291,17 +291,27 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
     const storm = sky.storm && !reduced && (clock.elapsedTime * 1000) % 11000 < 140;
 
     if (hemi.current) {
-      hemi.current.intensity = 0.25 + 0.65 * sky.daylight + (storm ? 0.8 : 0);
-      hemi.current.color.set(mix('#fff1dc', '#9aa8d0', night));
+      // The room never goes dark: after sunset the fill light stays bright
+      // and turns warm amber, so the café reads as cosy rather than night-blue.
+      hemi.current.intensity = 1.0 + 0.9 * night + (storm ? 0.8 : 0);
+      hemi.current.color.set(mix('#fff1dc', '#ffc890', night));
+      hemi.current.groundColor.set(mix('#6b4f3a', '#7a4a2a', night));
     }
     if (sun.current) {
-      sun.current.intensity = 1.6 * sky.daylight * (1 - sky.cloud * 0.5);
-      sun.current.color.set(mix('#ffe2b8', '#ff9a5a', twilight * 0.7));
+      // By day this is the sun; after dark it becomes the café's own warm
+      // ceiling light, so the room stays bright and amber at night.
+      const daySun = 1.6 * sky.daylight * (1 - sky.cloud * 0.5);
+      const roomLight = 1.3 * night;
+      sun.current.intensity = Math.max(daySun, roomLight);
+      sun.current.color.set(
+        daySun >= roomLight ? mix('#ffe2b8', '#ff9a5a', twilight * 0.7) : '#ffcf9a',
+      );
       sun.current.castShadow = quality.shadows && sun.current.intensity > 0.15;
     }
     points.current.forEach((light) => {
       if (!light) return;
-      light.intensity = 4.5 * lamps;
+      // Lamps are accents over the seats, not the room's main light.
+      light.intensity = 2.2 * lamps;
       light.visible = lamps > 0.01;
     });
     halos.current.forEach((sprite) => {
@@ -345,7 +355,7 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
             position={[lamp.x, lamp.y - 0.1, lamp.z]}
             color="#ffc98a"
             intensity={0}
-            distance={5}
+            distance={3}
             decay={2}
             visible={false}
           />
