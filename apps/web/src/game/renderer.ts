@@ -16,6 +16,9 @@ import { tilePath } from './primitives';
 import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
 import type { WorldAmbience } from '@/world/ambience';
 
+/** The window wall is split into this many large panes. */
+const WINDOW_PANES = 4;
+
 /** Name painted on the north-wall sign. */
 const SIGN_TEXT = 'GÓC QUEN';
 
@@ -235,90 +238,242 @@ export class CafeRenderer {
       return;
     }
     if (kind !== 'window') return;
+    this.drawWindowWall(ctx, from, to, time, reducedMotion);
+  }
 
-    const top = 112;
-    const bottom = 34;
-    for (let x = from; x < to; x += 1) {
-      const a = worldToScreen(x + 0.08, 1);
-      const b = worldToScreen(x + 0.92, 1);
+  /**
+   * One tall, clear glass wall onto the street. The outside is painted as a
+   * single continuous scene behind thin mullions, so the weather reads at a
+   * glance: sky colour, sun or moon, clouds, rain, fog and the lit windows
+   * across the road all follow the real sky (see world/ambience.ts).
+   */
+  private drawWindowWall(
+    ctx: CanvasRenderingContext2D,
+    from: number,
+    to: number,
+    time: number,
+    reducedMotion: boolean,
+  ): void {
+    const top = WALL_HEIGHT - 10;
+    const bottom = 14;
+    const a = worldToScreen(from + 0.04, 1);
+    const b = worldToScreen(to - 0.04, 1);
+    const night = 1 - this.sky.daylight;
+    const grey = this.sky.cloud * 0.6;
+    const rain = this.sky.rain;
 
-      ctx.save();
+    /** Point `lift` px up the wall, a fraction `u` of the way along it. */
+    const at = (u: number, lift: number) => ({
+      x: a.x + (b.x - a.x) * u,
+      y: a.y + (b.y - a.y) * u - lift,
+    });
+    const quad = (u0: number, u1: number, h0: number, h1: number, fill: string) => {
+      const p0 = at(u0, h0);
+      const p1 = at(u1, h0);
+      const p2 = at(u1, h1);
+      const p3 = at(u0, h1);
+      ctx.fillStyle = fill;
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y - bottom);
-      ctx.lineTo(b.x, b.y - bottom);
-      ctx.lineTo(b.x, b.y - top);
-      ctx.lineTo(a.x, a.y - top);
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p3.x, p3.y);
       ctx.closePath();
-      ctx.clip();
-
-      // The street outside follows the real sky: day, twilight, night; greyer
-      // under cloud. Near-ground darker, sky lighter.
-      const night = 1 - this.sky.daylight;
-      const grey = this.sky.cloud * 0.5;
-      const sky = ctx.createLinearGradient(0, a.y - top, 0, a.y - bottom);
-      sky.addColorStop(0, mix(mix(PALETTE.outsideFar, '#aab4b6', grey), '#1c2238', night));
-      sky.addColorStop(1, mix(mix(PALETTE.outside, '#8d9799', grey), '#2a2f3e', night));
-      ctx.fillStyle = sky;
-      ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
-
-      // Suggestion of trees and buildings across the street.
-      ctx.fillStyle = night > 0.5 ? 'rgba(28, 32, 40, 0.75)' : 'rgba(96, 112, 104, 0.55)';
-      ctx.beginPath();
-      ctx.ellipse((a.x + b.x) / 2, a.y - bottom - 18, 18, 14, 0, 0, Math.PI * 2);
       ctx.fill();
+    };
+    const minX = Math.min(a.x, b.x) - 4;
+    const width = Math.abs(b.x - a.x) + 8;
+    const minY = Math.min(a.y, b.y) - top - 4;
+    const height = Math.abs(b.y - a.y) + top + 8;
 
-      // Lit windows across the street once it gets dark.
-      if (night > 0.35) {
-        ctx.fillStyle = `rgba(255, 206, 128, ${0.55 * night})`;
-        const seed = hash2(x * 5, 3);
-        ctx.fillRect(a.x + (b.x - a.x) * (0.2 + seed * 0.4), a.y - bottom - 30 + seed * 6, 3, 4);
+    ctx.save();
+    ctx.beginPath();
+    const c0 = at(0, bottom);
+    const c1 = at(1, bottom);
+    const c2 = at(1, top);
+    const c3 = at(0, top);
+    ctx.moveTo(c0.x, c0.y);
+    ctx.lineTo(c1.x, c1.y);
+    ctx.lineTo(c2.x, c2.y);
+    ctx.lineTo(c3.x, c3.y);
+    ctx.closePath();
+    ctx.clip();
+
+    // Sky: blue by day, amber at the edges of the day, deep navy at night,
+    // washed towards grey under cloud.
+    const twilight = Math.max(0, 1 - Math.abs(this.sky.daylight - 0.5) * 2.4);
+    const skyTop = mix(mix(mix('#7fb2d9', '#9aa6b0', grey), '#e59a6a', twilight * 0.6), '#0f1630', night);
+    const skyLow = mix(mix(mix('#cfe3ee', '#c2c8cc', grey), '#f3c48e', twilight * 0.7), '#26304a', night);
+    const sky = ctx.createLinearGradient(0, minY, 0, minY + height);
+    sky.addColorStop(0, skyTop);
+    sky.addColorStop(1, skyLow);
+    ctx.fillStyle = sky;
+    ctx.fillRect(minX, minY, width, height);
+
+    // Sun by day, moon at night — hidden behind heavy cloud.
+    if (this.sky.cloud < 0.85) {
+      const body = at(0.78, top - 26);
+      const visible = 1 - Math.max(0, this.sky.cloud - 0.4) / 0.45;
+      ctx.globalAlpha = Math.max(0, Math.min(1, visible));
+      ctx.fillStyle = night > 0.5 ? '#eef1f7' : '#fff1c4';
+      ctx.beginPath();
+      ctx.arc(body.x, body.y, night > 0.5 ? 9 : 12, 0, Math.PI * 2);
+      ctx.fill();
+      if (night > 0.5) {
+        ctx.fillStyle = skyTop;
+        ctx.beginPath();
+        ctx.arc(body.x + 4, body.y - 2, 8, 0, Math.PI * 2);
+        ctx.fill();
       }
+      ctx.globalAlpha = 1;
+    }
 
-      const streaks = Math.round(8 * this.sky.rain);
-      if (!reducedMotion && streaks > 0) {
-        // Rain streaks running down the glass (SPEC 15.5).
-        ctx.strokeStyle = 'rgba(232, 240, 242, 0.5)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < streaks; i += 1) {
-          const seed = hash2(x * 13 + i, i * 7);
-          const speed = 90 + seed * 70;
-          const offset = ((time / 1000) * speed + seed * 200) % (top - bottom);
-          const sx = a.x + (b.x - a.x) * ((seed * 1.7) % 1);
-          const sy = a.y - top + offset;
-          ctx.beginPath();
-          ctx.moveTo(sx, sy);
-          ctx.lineTo(sx + 1.5, sy + 9);
-          ctx.stroke();
+    // Stars on a clear night.
+    if (night > 0.6 && this.sky.cloud < 0.5) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * night * (1 - this.sky.cloud * 2)})`;
+      for (let i = 0; i < 26; i += 1) {
+        const s = at(hash2(i, 1), top - 6 - hash2(i, 2) * 40);
+        ctx.fillRect(s.x, s.y, 1.2, 1.2);
+      }
+    }
+
+    // Clouds drifting slowly along the street.
+    const cloudCount = Math.round(2 + this.sky.cloud * 7);
+    const cloudColour = mix(mix('#ffffff', '#8e979e', grey + rain * 0.3), '#3a4256', night);
+    ctx.fillStyle = cloudColour;
+    for (let i = 0; i < cloudCount; i += 1) {
+      const drift = reducedMotion ? 0 : (time / 240000) * (0.6 + hash2(i, 9) * 0.6);
+      const u = (hash2(i, 4) + drift) % 1.15 - 0.075;
+      const c = at(u, top - 14 - hash2(i, 5) * 28);
+      ctx.globalAlpha = 0.55 + this.sky.cloud * 0.4;
+      for (let j = 0; j < 3; j += 1) {
+        ctx.beginPath();
+        ctx.ellipse(c.x + (j - 1) * 11, c.y - (j === 1 ? 4 : 0), 13, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Buildings across the street, with lit windows after dark.
+    const buildingFar = mix(mix('#9aa7a6', '#8b9294', grey), '#1a2032', night);
+    const buildingNear = mix(mix('#7d8a86', '#757d80', grey), '#141a28', night);
+    const lit = Math.max(0, (night - 0.25) / 0.75);
+    let u = 0;
+    let n = 0;
+    while (u < 1) {
+      const w = 0.035 + hash2(n, 11) * 0.05;
+      const h = 34 + hash2(n, 12) * 38;
+      quad(u, u + w, bottom + 18, bottom + 18 + h, n % 2 ? buildingFar : buildingNear);
+      if (lit > 0) {
+        for (let row = 0; row < 4; row += 1) {
+          for (let col = 0; col < 2; col += 1) {
+            if (hash2(n * 7 + row, col * 3) > 0.55) continue;
+            const wu = u + w * (0.25 + col * 0.4);
+            const wh = bottom + 26 + row * 10;
+            if (wh > bottom + 14 + h) continue;
+            quad(wu, wu + w * 0.18, wh, wh + 4, `rgba(255, 205, 130, ${0.85 * lit})`);
+          }
         }
       }
+      u += w + 0.004;
+      n += 1;
+    }
 
-      // Lightning: a brief flash every so often during a storm.
-      if (this.sky.storm && !reducedMotion && time % 11000 < 140) {
-        ctx.fillStyle = 'rgba(235, 240, 255, 0.7)';
-        ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
+    // Trees along the pavement.
+    ctx.fillStyle = mix(mix('#6f8a5c', '#66735e', grey), '#141c18', night);
+    for (let i = 0; i < 9; i += 1) {
+      const tp = at(0.05 + i * 0.112 + hash2(i, 21) * 0.03, bottom + 26);
+      ctx.beginPath();
+      ctx.ellipse(tp.x, tp.y, 9, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Street and pavement, wet and reflective in the rain.
+    quad(0, 1, bottom - 4, bottom + 18, mix(mix('#8d8a84', '#5f646a', rain), '#1b1f28', night));
+    if (night > 0.3) {
+      // Street lamps' pools of light on the pavement.
+      for (let i = 0; i < 4; i += 1) {
+        const lp = at(0.12 + i * 0.26, bottom + 6);
+        const glow = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 22);
+        glow.addColorStop(0, `rgba(255, 200, 120, ${0.45 * night})`);
+        glow.addColorStop(1, 'rgba(255, 200, 120, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(lp.x - 22, lp.y - 22, 44, 44);
       }
+    }
 
-      // Glass sheen.
-      ctx.fillStyle = `rgba(185, 205, 212, ${0.3 * (1 - night * 0.6)})`;
-      ctx.fillRect(a.x - 4, a.y - top - 4, b.x - a.x + 8, top + 8);
-      ctx.restore();
+    // Fog and heavy rain soften everything behind the glass.
+    const haze = Math.max(this.sky.cloud > 0.9 && rain === 0 ? 0.15 : 0, rain * 0.25);
+    if (haze > 0) {
+      ctx.fillStyle = `rgba(200, 210, 216, ${haze * (1 - night * 0.6)})`;
+      ctx.fillRect(minX, minY, width, height);
+    }
 
-      // Frame and mullion.
-      ctx.strokeStyle = PALETTE.wallTrim;
-      ctx.lineWidth = 3;
+    // Falling rain outside, then drops running down the glass.
+    if (!reducedMotion && rain > 0) {
+      ctx.strokeStyle = `rgba(225, 235, 245, ${0.35 + rain * 0.3})`;
+      ctx.lineWidth = 1;
+      const drops = Math.round(40 + rain * 120);
+      for (let i = 0; i < drops; i += 1) {
+        const seed = hash2(i, 31);
+        const fall = ((time / 1000) * (260 + seed * 120) + seed * 400) % (top - bottom + 20);
+        const d = at(hash2(i, 32), top - fall);
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x - 2, d.y + 8);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(235, 242, 246, 0.55)';
+      ctx.lineWidth = 1.4;
+      const streaks = Math.round(10 + rain * 30);
+      for (let i = 0; i < streaks; i += 1) {
+        const seed = hash2(i, 41);
+        const run = ((time / 1000) * (25 + seed * 30) + seed * 300) % (top - bottom);
+        const d = at(hash2(i, 42), top - run);
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x + 0.6, d.y + 6);
+        ctx.stroke();
+      }
+    }
+
+    // Lightning lights the whole sky for a moment.
+    if (this.sky.storm && !reducedMotion && time % 11000 < 140) {
+      ctx.fillStyle = 'rgba(235, 240, 255, 0.65)';
+      ctx.fillRect(minX, minY, width, height);
+    }
+
+    // Clear glass: only a faint diagonal glint, so the street stays visible.
+    const glint = ctx.createLinearGradient(minX, minY, minX + width, minY + height);
+    glint.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    glint.addColorStop(0.45, `rgba(255, 255, 255, ${0.07 * (1 - night * 0.7)})`);
+    glint.addColorStop(0.55, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = glint;
+    ctx.fillRect(minX, minY, width, height);
+    ctx.restore();
+
+    // Frame, then mullions splitting the glass into a few large panes.
+    ctx.strokeStyle = PALETTE.wallTrim;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(c0.x, c0.y);
+    ctx.lineTo(c1.x, c1.y);
+    ctx.lineTo(c2.x, c2.y);
+    ctx.lineTo(c3.x, c3.y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.lineWidth = 4;
+    for (let pane = 1; pane < WINDOW_PANES; pane += 1) {
+      const m = pane / WINDOW_PANES;
+      const p0 = at(m, bottom);
+      const p1 = at(m, top);
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y - bottom);
-      ctx.lineTo(b.x, b.y - bottom);
-      ctx.lineTo(b.x, b.y - top);
-      ctx.lineTo(a.x, a.y - top);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y - (top + bottom) / 2);
-      ctx.lineTo(b.x, b.y - (top + bottom) / 2);
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
       ctx.stroke();
     }
+    // Window sill.
+    quad(0, 1, bottom - 3, bottom, shade(PALETTE.wallTrim, -0.12));
   }
 
   private drawWestDecor(
