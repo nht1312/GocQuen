@@ -23,6 +23,9 @@ import { AvatarRenderState } from './avatar';
 import { SceneInput } from './renderer';
 import { joystickToWorld } from './touchInput';
 
+/** How far into the sofa (towards the backrest) a seated avatar is drawn. */
+const SOFA_CUSHION_OFFSET = 0.55;
+
 /** The four screen-space directions a key can hold down. */
 export type MoveAxis = 'up' | 'down' | 'left' | 'right';
 
@@ -478,10 +481,11 @@ export class CafeEngine {
     const self = this.selfEntity();
     const avatars: AvatarRenderState[] = [];
     for (const entity of this.entities.values()) {
+      const pose = this.seatedPose(entity);
       avatars.push({
-        x: entity.x,
-        y: entity.y,
-        direction: entity.direction,
+        x: pose.x,
+        y: pose.y,
+        direction: pose.direction,
         moving: entity.moving,
         seated: entity.seated,
         phase: entity.phase,
@@ -505,6 +509,24 @@ export class CafeEngine {
       cameraX: self?.x ?? 12,
       cameraY: self?.y ?? 10,
     };
+  }
+
+  /**
+   * Where a seated avatar is *drawn*.
+   *
+   * A sofa seat tile is the floor in front of the sofa (the sofa itself is
+   * solid), so drawing the avatar on the seat anchor left it hovering on the
+   * rug. Draw it on the cushion instead, facing away from the backrest. Only
+   * the picture moves: the logical position stays on the walkable seat tile,
+   * so standing up and the server's reach and collision checks are unchanged.
+   */
+  private seatedPose(entity: Entity): { x: number; y: number; direction: Entity['direction'] } {
+    const base = { x: entity.x, y: entity.y, direction: entity.direction };
+    if (!entity.seated) return base;
+    const seatId = this.seatIdOf(entity.id);
+    const seat = seatId ? SEATS_BY_ID.get(seatId) : undefined;
+    if (!seat || seat.seatType !== 'sofa') return base;
+    return { x: entity.x, y: entity.y - SOFA_CUSHION_OFFSET, direction: 'south' };
   }
 
   destroy(): void {
