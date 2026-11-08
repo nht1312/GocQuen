@@ -8,6 +8,8 @@ import { hash2 } from '@/game/palette';
 import { useCafeStore } from '@/state/useCafeStore';
 import type { WorldAmbience } from '@/world/ambience';
 import { mat } from './materials';
+import { SkyFader, paintSkyLayers, skyNameFor } from '@/world/skybox';
+import type { SkyLayers } from '@/world/skybox';
 import { WINDOW_BOX } from './Room';
 import type { QualitySettings } from './quality';
 
@@ -56,7 +58,7 @@ const LAMPS = MAP_OBJECTS.filter((o) => o.kind === 'hanging_lamp' || o.kind === 
 
 // --------------------------------------------------------- street view
 
-function paintStreet(g: CanvasRenderingContext2D, w: number, h: number, sky: Sky): void {
+function paintStreet(g: CanvasRenderingContext2D, w: number, h: number, sky: Sky, layers: SkyLayers): void {
   const night = 1 - sky.daylight;
   const grey = sky.cloud * 0.6;
   const twilight = Math.max(0, 1 - Math.abs(sky.daylight - 0.5) * 2.4);
@@ -70,7 +72,10 @@ function paintStreet(g: CanvasRenderingContext2D, w: number, h: number, sky: Sky
   g.fillStyle = gradient;
   g.fillRect(0, 0, w, h);
 
-  if (sky.cloud < 0.85) {
+  // The panorama for the time of day, live cloud and rain over it.
+  const skyShown = paintSkyLayers(g, layers, 0, 0, w, ground, { cloud: sky.cloud, rain: sky.rain, night });
+
+  if (!skyShown && sky.cloud < 0.85) {
     g.globalAlpha = Math.max(0, Math.min(1, 1 - Math.max(0, sky.cloud - 0.4) / 0.45));
     g.fillStyle = night > 0.5 ? '#eef1f7' : '#fff1c4';
     g.beginPath();
@@ -85,7 +90,7 @@ function paintStreet(g: CanvasRenderingContext2D, w: number, h: number, sky: Sky
     g.globalAlpha = 1;
   }
 
-  if (night > 0.6 && sky.cloud < 0.5) {
+  if (!skyShown && night > 0.6 && sky.cloud < 0.5) {
     g.fillStyle = `rgba(255,255,255,${0.7 * night * (1 - sky.cloud * 2)})`;
     for (let i = 0; i < 40; i += 1) g.fillRect(hash2(i, 1) * w, hash2(i, 2) * h * 0.45, 1.5, 1.5);
   }
@@ -163,19 +168,26 @@ function StreetView() {
     return { canvas: element, texture: map };
   }, []);
 
-  useEffect(() => {
-    let key = '';
-    const draw = (ambience: WorldAmbience | null) => {
-      const sky = skyOf(ambience);
-      const next = `${sky.daylight.toFixed(2)}|${sky.rain.toFixed(2)}|${sky.cloud.toFixed(2)}`;
-      if (next === key) return;
-      key = next;
-      paintStreet(canvas.getContext('2d')!, canvas.width, canvas.height, sky);
-      texture.needsUpdate = true;
-    };
-    draw(useCafeStore.getState().ambience);
-    return useCafeStore.subscribe((state) => draw(state.ambience));
-  }, [canvas, texture]);
+  const fader = useMemo(() => new SkyFader(), []);
+  const key = useRef('');
+  // Repaint only when the sky, the weather or a crossfade step changes.
+  useFrame(() => {
+    const state = useCafeStore.getState();
+    const sky = skyOf(state.ambience);
+    const layers = fader.update(skyNameFor(state.ambience), performance.now(), state.audio.reducedMotion);
+    const next = [
+      sky.daylight.toFixed(2),
+      sky.rain.toFixed(2),
+      sky.cloud.toFixed(2),
+      layers.aboveName,
+      layers.belowName,
+      layers.t.toFixed(2),
+    ].join('|');
+    if (next === key.current) return;
+    key.current = next;
+    paintStreet(canvas.getContext('2d')!, canvas.width, canvas.height, sky, layers);
+    texture.needsUpdate = true;
+  });
 
   useEffect(() => () => texture.dispose(), [texture]);
 
@@ -353,7 +365,7 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
               points.current[i] = light;
             }}
             position={[lamp.x, lamp.y - 0.1, lamp.z]}
-            color="#ffc98a"
+            color={lamp.id === 'lamp_gaming' ? '#b58cff' : '#ffc98a'}
             intensity={0}
             distance={3}
             decay={2}

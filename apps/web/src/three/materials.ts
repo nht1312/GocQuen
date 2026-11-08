@@ -53,6 +53,23 @@ export function directionToWorld(direction: Direction): { x: number; z: number }
   return { x: x / length, z: z / length };
 }
 
+/**
+ * Seat tiles are one whole tile away from their table, which left a gap
+ * between chair and table. Chairs (and the avatar sitting on them) are drawn
+ * pulled in towards the table by this much. Visual only — the map, the
+ * server's reach check and collision still use the tile.
+ */
+export const SEAT_PULL: Record<string, number> = { chair: 0.22, stool: 0.18, armchair: 0.12, sofa: 0 };
+
+export function seatDrawPosition(seat: { x: number; y: number; facing: Direction; seatType: string }): {
+  x: number;
+  z: number;
+} {
+  const pull = SEAT_PULL[seat.seatType] ?? 0;
+  const v = directionToWorld(seat.facing);
+  return { x: seat.x + 0.5 + v.x * pull, z: seat.y + 0.5 + v.z * pull };
+}
+
 /** Rotation about Y that turns a model's local +Z towards `direction`. */
 export function yawOf(direction: Direction): number {
   const v = directionToWorld(direction);

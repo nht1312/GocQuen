@@ -31,7 +31,8 @@ export type ObjectKind =
   | 'rug'
   | 'hanging_lamp'
   | 'floor_lamp'
-  | 'door_mat';
+  | 'door_mat'
+  | 'planter';
 
 export type SeatType = 'chair' | 'stool' | 'sofa' | 'armchair';
 
@@ -42,7 +43,8 @@ export type ZoneId =
   | 'solo_tables'
   | 'community_table'
   | 'group_tables'
-  | 'lounge';
+  | 'lounge'
+  | 'gaming';
 
 export interface MapObject {
   id: string;
@@ -84,7 +86,7 @@ export interface WallDecor {
   id: string;
   /** north is the y=0 wall (upper right on screen), west the x=0 wall. */
   wall: 'north' | 'west';
-  kind: 'window' | 'menu_board' | 'art' | 'clock' | 'sign';
+  kind: 'window' | 'menu_board' | 'art' | 'clock' | 'sign' | 'neon';
   from: number;
   to: number;
 }
@@ -96,161 +98,184 @@ interface TableSpec {
   seats: Array<{ x: number; y: number; type: SeatType; npcOnly?: boolean }>;
 }
 
+/**
+ * Layout v3 — spaced out, every table with at least one clear tile around it:
+ *
+ *     01234567890123456789012345
+ *   0 ######WWWWWWWWWWW#NNNNNNN#   W window · N Khu Chơi Game banner
+ *   1 #..BBPc..c..c..c..P.....P#
+ *   2 #.....Tc.Tc.Tc.Tc........#   window tables · floor in front of banner
+ *   3 #.Q......................#
+ *   4 #.Qs.....................#
+ *   5 #.Q.....c.c.c.....cTTc...#   counter · community · group A
+ *   6 #.Qs....TTTTTT....cTTc...#
+ *   7 #.Q.....TTTTTT...........#
+ *   8 #.Qs....c.c.c...........p#
+ *   9 #.Q......................#
+ *  10 #.R....................Tc#   solo tables
+ *  11 #K~~~~........c.c........#
+ *  12 #K~a~~.~~~~~..TTTT.......#   reading nook · lounge · group B
+ *  13 #K~k~~.~FFFL..TTTT.....Tc#
+ *  14 #P~a~~.~SSS~..c.c..ka....#   quiet corner
+ *  15 #~~~~~.~~~~~.............#
+ *  16 #D*....~kkk~...........Tc#   entrance
+ *  18 #............p....====...#   planter
+ *
+ * Seat group ids are unchanged (tests and tools rely on them). Khu Chơi Game
+ * is a separate space (/khu-choi-game); the café keeps only its banner.
+ */
 const TABLES: TableSpec[] = [
   {
     id: 'counter',
     zone: 'counter',
-    object: { kind: 'counter', x: 2, y: 3, w: 1, h: 8 },
+    object: { kind: 'counter', x: 2, y: 3, w: 1, h: 7 },
     seats: [
       { x: 3, y: 4, type: 'stool' },
       { x: 3, y: 6, type: 'stool' },
       { x: 3, y: 8, type: 'stool' },
     ],
   },
+  ...([
+    ['window_1', 6],
+    ['window_2', 9],
+    ['window_3', 12],
+    ['window_4', 15],
+  ] as const).map(
+    ([id, x]): TableSpec => ({
+      id,
+      zone: 'window_seats',
+      object: { kind: 'table_small', x, y: 2, w: 1, h: 1 },
+      seats: [
+        { x, y: 1, type: 'chair' },
+        { x: x + 1, y: 2, type: 'chair' },
+      ],
+    }),
+  ),
   {
-    id: 'window_1',
-    zone: 'window_seats',
-    object: { kind: 'table_small', x: 6, y: 2, w: 1, h: 1 },
+    id: 'group_a',
+    zone: 'group_tables',
+    object: { kind: 'table_group', x: 19, y: 5, w: 2, h: 2 },
     seats: [
-      { x: 6, y: 1, type: 'chair' },
-      { x: 7, y: 2, type: 'chair' },
+      { x: 18, y: 5, type: 'chair' },
+      { x: 18, y: 6, type: 'chair' },
+      { x: 21, y: 5, type: 'chair' },
+      { x: 21, y: 6, type: 'chair' },
     ],
-  },
-  {
-    id: 'window_2',
-    zone: 'window_seats',
-    object: { kind: 'table_small', x: 10, y: 2, w: 1, h: 1 },
-    seats: [
-      { x: 10, y: 1, type: 'chair' },
-      { x: 11, y: 2, type: 'chair' },
-    ],
-  },
-  {
-    id: 'window_3',
-    zone: 'window_seats',
-    object: { kind: 'table_small', x: 14, y: 2, w: 1, h: 1 },
-    seats: [
-      { x: 14, y: 1, type: 'chair' },
-      { x: 15, y: 2, type: 'chair' },
-    ],
-  },
-  {
-    id: 'window_4',
-    zone: 'window_seats',
-    object: { kind: 'table_small', x: 18, y: 2, w: 1, h: 1 },
-    seats: [
-      { x: 18, y: 1, type: 'chair' },
-      { x: 19, y: 2, type: 'chair' },
-    ],
-  },
-  {
-    id: 'solo_1',
-    zone: 'solo_tables',
-    object: { kind: 'table_small', x: 5, y: 7, w: 1, h: 1 },
-    seats: [{ x: 5, y: 8, type: 'chair' }],
-  },
-  {
-    id: 'solo_2',
-    zone: 'solo_tables',
-    object: { kind: 'table_small', x: 5, y: 11, w: 1, h: 1 },
-    seats: [{ x: 5, y: 12, type: 'chair' }],
-  },
-  {
-    id: 'solo_3',
-    zone: 'solo_tables',
-    object: { kind: 'table_small', x: 5, y: 15, w: 1, h: 1 },
-    seats: [{ x: 5, y: 16, type: 'chair' }],
   },
   {
     id: 'community',
     zone: 'community_table',
-    object: { kind: 'table_community', x: 9, y: 6, w: 2, h: 6 },
+    object: { kind: 'table_community', x: 8, y: 6, w: 6, h: 2 },
     seats: [
-      { x: 8, y: 6, type: 'chair' },
+      { x: 8, y: 5, type: 'chair' },
+      { x: 10, y: 5, type: 'chair' },
+      { x: 12, y: 5, type: 'chair' },
       { x: 8, y: 8, type: 'chair' },
-      { x: 8, y: 10, type: 'chair' },
-      { x: 11, y: 6, type: 'chair' },
-      { x: 11, y: 8, type: 'chair' },
-      { x: 11, y: 10, type: 'chair' },
-    ],
-  },
-  {
-    id: 'group_a',
-    zone: 'group_tables',
-    object: { kind: 'table_group', x: 14, y: 6, w: 2, h: 2 },
-    seats: [
-      { x: 13, y: 6, type: 'chair' },
-      { x: 13, y: 7, type: 'chair' },
-      { x: 16, y: 6, type: 'chair' },
-      { x: 16, y: 7, type: 'chair' },
+      { x: 10, y: 8, type: 'chair' },
+      { x: 12, y: 8, type: 'chair' },
     ],
   },
   {
     id: 'group_b',
     zone: 'group_tables',
-    object: { kind: 'table_group', x: 14, y: 10, w: 2, h: 2 },
+    object: { kind: 'table_group', x: 14, y: 12, w: 4, h: 2 },
     seats: [
-      { x: 13, y: 10, type: 'chair' },
-      { x: 13, y: 11, type: 'chair' },
-      { x: 16, y: 10, type: 'chair' },
+      { x: 14, y: 11, type: 'chair' },
       { x: 16, y: 11, type: 'chair' },
+      { x: 14, y: 14, type: 'chair' },
+      { x: 16, y: 14, type: 'chair' },
     ],
   },
+  ...([
+    ['solo_1', 10],
+    ['solo_2', 13],
+    ['solo_3', 16],
+  ] as const).map(
+    ([id, y]): TableSpec => ({
+      id,
+      zone: 'solo_tables',
+      object: { kind: 'table_small', x: 23, y, w: 1, h: 1 },
+      seats: [{ x: 24, y, type: 'chair' }],
+    }),
+  ),
   {
     id: 'lounge',
     zone: 'lounge',
-    object: { kind: 'sofa', x: 20, y: 13, w: 3, h: 1 },
+    object: { kind: 'sofa', x: 8, y: 13, w: 3, h: 1 },
     seats: [
-      { x: 20, y: 14, type: 'sofa' },
-      { x: 21, y: 14, type: 'sofa' },
-      { x: 22, y: 14, type: 'sofa' },
+      { x: 8, y: 14, type: 'sofa' },
+      { x: 9, y: 14, type: 'sofa' },
+      { x: 10, y: 14, type: 'sofa' },
     ],
   },
   {
     id: 'reading_nook',
     zone: 'lounge',
-    object: { kind: 'coffee_table', x: 21, y: 16, w: 1, h: 1 },
-    seats: [{ x: 19, y: 16, type: 'armchair', npcOnly: true }],
+    object: { kind: 'coffee_table', x: 3, y: 13, w: 1, h: 1 },
+    seats: [
+      { x: 3, y: 12, type: 'armchair', npcOnly: true },
+      { x: 3, y: 14, type: 'armchair', npcOnly: true },
+    ],
   },
   {
     id: 'window_nook',
-    zone: 'window_seats',
-    object: { kind: 'coffee_table', x: 23, y: 7, w: 1, h: 1 },
-    seats: [{ x: 23, y: 8, type: 'armchair', npcOnly: true }],
+    zone: 'group_tables',
+    object: { kind: 'coffee_table', x: 19, y: 14, w: 1, h: 1 },
+    seats: [{ x: 20, y: 14, type: 'armchair', npcOnly: true }],
   },
 ];
+
+/** Khu Chơi Game: the walled room in the north-east corner. */
+/** Floor in front of the Khu Chơi Game banner: standing here offers the way in. */
+export const GAMING_ZONE = { x: 17, y: 1, w: 8, h: 3 } as const;
+/** Stations on the /khu-choi-game page (reserved there, not in the café). */
+export const GAMING_CAPACITY = 6;
+
+export function isInGamingZone(x: number, y: number): boolean {
+  return (
+    x >= GAMING_ZONE.x &&
+    x < GAMING_ZONE.x + GAMING_ZONE.w &&
+    y >= GAMING_ZONE.y &&
+    y < GAMING_ZONE.y + GAMING_ZONE.h
+  );
+}
 
 /** Standalone decoration and props that are not part of a seating group. */
 const PROPS: MapObject[] = [
   { id: 'espresso_machine', kind: 'espresso_machine', x: 2, y: 4, w: 1, h: 1, solid: true, layer: 1 },
   { id: 'grinder', kind: 'grinder', x: 2, y: 6, w: 1, h: 1, solid: true, layer: 1 },
   { id: 'pastry_case', kind: 'pastry_case', x: 2, y: 9, w: 1, h: 1, solid: true, layer: 1 },
-  { id: 'display_shelf', kind: 'display_shelf', x: 2, y: 12, w: 1, h: 2, solid: true },
-  { id: 'bookshelf', kind: 'bookshelf', x: 1, y: 1, w: 1, h: 1, solid: true },
-  { id: 'plant_entrance', kind: 'plant_large', x: 1, y: 14, w: 1, h: 1, solid: true },
-  { id: 'plant_window', kind: 'plant_large', x: 4, y: 2, w: 1, h: 1, solid: true },
-  { id: 'plant_lounge', kind: 'plant_large', x: 22, y: 2, w: 1, h: 1, solid: true },
-  { id: 'plant_hall_a', kind: 'plant_small', x: 8, y: 17, w: 1, h: 1, solid: true },
-  { id: 'plant_hall_b', kind: 'plant_small', x: 17, y: 17, w: 1, h: 1, solid: true },
-  { id: 'trash_bin', kind: 'trash_bin', x: 23, y: 17, w: 1, h: 1, solid: true },
-  { id: 'floor_lamp', kind: 'floor_lamp', x: 19, y: 12, w: 1, h: 1, solid: true },
-  { id: 'rug_lounge', kind: 'rug', x: 19, y: 13, w: 5, h: 4, solid: false, layer: -1 },
+  { id: 'bookshelf', kind: 'bookshelf', x: 3, y: 1, w: 2, h: 1, solid: true },
+  { id: 'low_shelf', kind: 'display_shelf', x: 1, y: 11, w: 1, h: 3, solid: true },
+  { id: 'plant_bar', kind: 'plant_large', x: 5, y: 1, w: 1, h: 1, solid: true },
+  { id: 'plant_nook', kind: 'plant_large', x: 1, y: 14, w: 1, h: 1, solid: true },
+  { id: 'plant_hall', kind: 'plant_small', x: 13, y: 18, w: 1, h: 1, solid: true },
+  { id: 'plant_solo', kind: 'plant_small', x: 24, y: 8, w: 1, h: 1, solid: true },
+  { id: 'trash_bin', kind: 'trash_bin', x: 2, y: 10, w: 1, h: 1, solid: true },
+  { id: 'floor_lamp', kind: 'floor_lamp', x: 11, y: 13, w: 1, h: 1, solid: true },
+  { id: 'lounge_coffee', kind: 'coffee_table', x: 8, y: 16, w: 3, h: 1, solid: true },
+  { id: 'planter', kind: 'planter', x: 18, y: 18, w: 4, h: 1, solid: true },
+  { id: 'rug_nook', kind: 'rug', x: 1, y: 11, w: 5, h: 5, solid: false, layer: -1 },
+  { id: 'rug_lounge', kind: 'rug', x: 7, y: 12, w: 5, h: 6, solid: false, layer: -1 },
   { id: 'door_mat', kind: 'door_mat', x: 1, y: 16, w: 1, h: 2, solid: false, layer: -1 },
-  // Pendant lamps: one above every table, plus the order counter, the
-  // Góc Quen corner by the sign and the entrance. Placed so each lamp's centre
-  // (x + w/2, y + h/2) sits over the middle of what it lights. Not solid.
+  // Khu Chơi Game is not in the café: only its neon banner hangs on the
+  // north wall. Walking up to it offers a way to its own page.
+  { id: 'plant_banner_a', kind: 'plant_large', x: 18, y: 1, w: 1, h: 1, solid: true },
+  { id: 'plant_banner_b', kind: 'plant_large', x: 24, y: 1, w: 1, h: 1, solid: true },
+  // Pendant lamps, one per area. Each lamp's centre (x + 0.5, y + 0.5) sits
+  // over what it lights. Not solid.
   ...(
     [
-      // One lamp per area, not per seat: fewer bulbs keep the ceiling calm.
       ['lamp_counter', 2.5, 6.5],
-      ['lamp_window_left', 8, 2], // window tables 1 + 2
-      ['lamp_window_right', 16, 2], // window tables 3 + 4
-      ['lamp_solo', 5, 11], // the three solo tables
-      ['lamp_community', 9.5, 8.5],
-      ['lamp_group_a', 14.5, 6.5],
-      ['lamp_group_b', 14.5, 10.5],
-      ['lamp_lounge', 20.5, 14.5], // sofa + reading nook
-      ['lamp_goc_quen', 23, 4.5], // the corner under the sign + window nook
+      ['lamp_window_left', 7.5, 1.5],
+      ['lamp_window_right', 13.5, 1.5],
+      ['lamp_group_a', 19.5, 5.5],
+      ['lamp_community', 10.5, 6.5],
+      ['lamp_group_b', 15.5, 12.5],
+      ['lamp_solo', 23, 13],
+      ['lamp_lounge', 9, 14.5],
+      ['lamp_nook', 3, 13],
+      ['lamp_quiet', 19, 14],
       ['lamp_entrance', 1.5, 16.5],
     ] as const
   ).map(
@@ -259,21 +284,23 @@ const PROPS: MapObject[] = [
 ];
 
 export const WALL_DECOR: WallDecor[] = [
-  { id: 'window_wall', wall: 'north', kind: 'window', from: 4, to: 21 },
-  { id: 'cafe_sign', wall: 'north', kind: 'sign', from: 22, to: 24 },
+  { id: 'cafe_sign', wall: 'north', kind: 'sign', from: 1, to: 5 },
+  { id: 'window_wall', wall: 'north', kind: 'window', from: 6, to: 17 },
+  { id: 'gaming_neon', wall: 'north', kind: 'neon', from: 18, to: 25 },
   { id: 'menu_board', wall: 'west', kind: 'menu_board', from: 3, to: 6 },
   { id: 'wall_clock', wall: 'west', kind: 'clock', from: 8, to: 9 },
   { id: 'art_frames', wall: 'west', kind: 'art', from: 11, to: 14 },
 ];
 
 export const ZONES: Zone[] = [
-  { id: 'entrance', label: 'Lối vào', x: 1, y: 14, w: 4, h: 5 },
-  { id: 'counter', label: 'Quầy pha chế', x: 1, y: 3, w: 3, h: 10 },
-  { id: 'window_seats', label: 'Chỗ ngồi cạnh cửa sổ', x: 5, y: 1, w: 19, h: 4 },
-  { id: 'solo_tables', label: 'Bàn đơn', x: 4, y: 6, w: 3, h: 12 },
-  { id: 'community_table', label: 'Bàn chung', x: 7, y: 5, w: 5, h: 8 },
-  { id: 'group_tables', label: 'Bàn nhóm', x: 12, y: 5, w: 6, h: 8 },
-  { id: 'lounge', label: 'Khu thư giãn', x: 18, y: 11, w: 6, h: 7 },
+  { id: 'gaming', label: 'Trước Khu Chơi Game', x: 17, y: 1, w: 8, h: 3 },
+  { id: 'counter', label: 'Quầy pha chế', x: 1, y: 1, w: 4, h: 10 },
+  { id: 'window_seats', label: 'Chỗ ngồi cạnh cửa sổ', x: 5, y: 1, w: 12, h: 2 },
+  { id: 'entrance', label: 'Lối vào', x: 1, y: 16, w: 3, h: 3 },
+  { id: 'lounge', label: 'Khu thư giãn', x: 1, y: 11, w: 11, h: 7 },
+  { id: 'community_table', label: 'Bàn chung', x: 6, y: 4, w: 9, h: 6 },
+  { id: 'solo_tables', label: 'Bàn đơn', x: 22, y: 9, w: 3, h: 9 },
+  { id: 'group_tables', label: 'Bàn nhóm', x: 5, y: 3, w: 17, h: 16 },
 ];
 
 /**
@@ -296,7 +323,7 @@ export const TABLE_LABELS: Record<string, string> = {
   group_b: 'Bàn nhóm B',
   lounge: 'Khu thư giãn',
   reading_nook: 'Góc đọc sách',
-  window_nook: 'Góc cửa sổ',
+  window_nook: 'Góc yên tĩnh',
 };
 
 /** Name of a table for display, falling back to a neutral word. */

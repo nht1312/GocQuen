@@ -249,6 +249,12 @@ export function drawObjectSlice(
       foliage(ctx, cx, cy, scale * 1.2, scale);
       break;
     }
+    case 'planter': {
+      isoBox(ctx, body.x + 0.05, body.y + 0.12, body.w - 0.1, body.h - 0.24, 26, boxColors(PALETTE.woodSide));
+      ellipseWorld(ctx, cx, cy, 36, 16, 9, PALETTE.plant);
+      ellipseWorld(ctx, cx + 0.2, cy, 44, 11, 7, PALETTE.plantLight);
+      break;
+    }
     case 'trash_bin': {
       isoBox(ctx, slice.x + 0.32, slice.y + 0.32, 0.36, 0.36, 32, boxColors(PALETTE.metalDark));
       break;

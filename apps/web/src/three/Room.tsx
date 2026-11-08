@@ -11,7 +11,9 @@ import {
 } from '@virtual-cafe/shared';
 import type { MapObject, SeatDefinition } from '@virtual-cafe/shared';
 import { PALETTE, hash2 } from '@/game/palette';
-import { mat, yawOf } from './materials';
+import { mat, seatDrawPosition, yawOf } from './materials';
+import { ObjectModel, PendantModel, SeatModel, preloadModels } from './Models';
+import { USE_MODELS } from '@/lib/flags';
 
 export const WALL_H = 3;
 
@@ -94,36 +96,42 @@ function Blob({ x, y, z, r, color, sy = 1 }: { x: number; y: number; z: number; 
 
 // ------------------------------------------------------------------ floor
 
-function Floor() {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const tiles = useMemo(() => {
-    const list: Array<[number, number]> = [];
-    for (let x = 1; x < MAP_WIDTH - 1; x += 1) for (let z = 1; z < MAP_HEIGHT - 1; z += 1) list.push([x, z]);
-    return list;
+/**
+ * Oak veneer floor (Poly Haven, CC0) from /public/textures, one texture
+ * repeat per two tiles, warmed to the café's walnut tone.
+ */
+function useOakTextures() {
+  return useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const load = (url: string, colour: boolean) => {
+      const texture = loader.load(url);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set((MAP_WIDTH - 2) / 2, (MAP_HEIGHT - 2) / 2);
+      texture.anisotropy = 8;
+      if (colour) texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    };
+    return { map: load('/textures/oak_veneer_diff.jpg', true), normal: load('/textures/oak_veneer_nor.jpg', false) };
   }, []);
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const dummy = new THREE.Object3D();
-    const colour = new THREE.Color();
-    tiles.forEach(([x, z], index) => {
-      dummy.position.set(x + 0.5, -0.05, z + 0.5);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(index, dummy.matrix);
-      const palette = PALETTE.floorWood;
-      colour.set(palette[Math.floor(hash2(x, z) * palette.length) % palette.length]);
-      mesh.setColorAt(index, colour);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [tiles]);
+}
+
+function Floor() {
+  const oak = useOakTextures();
   return (
     <>
       <Box x={0.8} y={-0.16} z={0.8} w={MAP_WIDTH - 1.8} h={0.06} d={MAP_HEIGHT - 1.8} color={PALETTE.grout} shadow={false} />
-      <instancedMesh ref={ref} args={[undefined, undefined, tiles.length]} receiveShadow>
-        <boxGeometry args={[0.97, 0.1, 0.97]} />
-        <meshStandardMaterial roughness={0.9} flatShading />
-      </instancedMesh>
+      <mesh position={[MAP_WIDTH / 2, 0, MAP_HEIGHT / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[MAP_WIDTH - 2, MAP_HEIGHT - 2]} />
+        <meshStandardMaterial
+          map={oak.map}
+          normalMap={oak.normal}
+          normalScale={new THREE.Vector2(0.6, 0.6)}
+          color="#e0b48a"
+          roughness={0.7}
+          metalness={0}
+        />
+      </mesh>
     </>
   );
 }
@@ -167,6 +175,35 @@ export const WINDOW_BOX = {
 
 const WINDOW_PANES = 4;
 
+function GamingNeon() {
+  const decor = WALL_DECOR.find((d) => d.kind === 'neon');
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const g = canvas.getContext('2d')!;
+    g.fillStyle = '#1d1726';
+    g.fillRect(0, 0, 512, 128);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = '700 54px ui-sans-serif, system-ui, sans-serif';
+    g.shadowColor = '#a866ff';
+    g.shadowBlur = 18;
+    g.fillStyle = '#e2d0ff';
+    g.fillText('KHU CHƠI GAME', 256, 66);
+    const map = new THREE.CanvasTexture(canvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    return map;
+  }, []);
+  if (!decor) return null;
+  return (
+    <mesh position={[(decor.from + decor.to) / 2, 2.1, 0.8 + 0.2 + 0.03]}>
+      <planeGeometry args={[decor.to - decor.from - 0.8, 0.9]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  );
+}
+
 function Walls() {
   const sign = useSignTexture();
   const north = WALL_DECOR.find((decor) => decor.kind === 'window');
@@ -202,6 +239,9 @@ function Walls() {
       {mullions}
       <Box x={winFrom} y={sill - 0.06} z={wallZ + t - 0.06} w={winTo - winFrom} h={0.08} d={0.16} color={trim} />
       <Box x={winFrom} y={head} z={wallZ + t - 0.06} w={winTo - winFrom} h={0.08} d={0.1} color={trim} />
+
+      {/* Khu Chơi Game neon. */}
+      <GamingNeon />
 
       {/* Sign. */}
       {signDecor ? (
@@ -372,6 +412,15 @@ function Furniture({ o }: { o: MapObject }) {
           <Blob x={cx} y={0.55} z={cz} r={0.28} color={PALETTE.plantLight} />
         </>
       );
+    case 'planter':
+      return (
+        <>
+          <Box x={o.x + 0.05} y={0} z={o.y + 0.12} w={o.w - 0.1} h={0.5} d={o.h - 0.24} color={PALETTE.woodSide} />
+          {Array.from({ length: o.w * 2 }, (_, i) => (
+            <Blob key={i} x={o.x + 0.3 + i * 0.5} y={0.75} z={o.y + 0.5} r={0.3} color={i % 2 ? PALETTE.plantLight : PALETTE.plant} />
+          ))}
+        </>
+      );
     case 'trash_bin':
       return <Cyl x={cx} y={0} z={cz} r={0.2} r2={0.17} h={0.5} color={PALETTE.metalDark} seg={8} />;
     case 'rug':
@@ -387,7 +436,16 @@ function Furniture({ o }: { o: MapObject }) {
       return (
         <>
           <Cyl x={cx} y={2.45} z={cz} r={0.012} h={WALL_H - 2.45} color="#3c2e24" seg={4} />
-          <Cyl x={cx} y={2.25} z={cz} r={0.08} r2={0.26} h={0.2} color="#a8663c" seg={8} />
+          {USE_MODELS ? (
+            <PendantModel
+              x={cx}
+              z={cz}
+              fallback={<Cyl x={cx} y={2.25} z={cz} r={0.08} r2={0.26} h={0.2} color="#a8663c" seg={8} />}
+            />
+          ) : (
+            <Cyl x={cx} y={2.25} z={cz} r={0.08} r2={0.26} h={0.2} color="#a8663c" seg={8} />
+          )}
+          {/* The bulb stays ours: Atmosphere drives its glow at night. */}
           <mesh position={[cx, 2.22, cz]} material={mat('#f2d6a6', { emissive: '#f2d6a6', emissiveIntensity: 0.5 })}>
             <icosahedronGeometry args={[0.07, 0]} />
           </mesh>
@@ -408,8 +466,7 @@ function Furniture({ o }: { o: MapObject }) {
 
 function Seat({ seat }: { seat: SeatDefinition }) {
   if (seat.seatType === 'sofa') return null; // part of the sofa itself
-  const cx = seat.x + 0.5;
-  const cz = seat.y + 0.5;
+  const { x: cx, z: cz } = seatDrawPosition(seat);
   const yaw = yawOf(seat.facing);
   if (seat.seatType === 'stool') {
     return (
@@ -438,17 +495,27 @@ function Seat({ seat }: { seat: SeatDefinition }) {
 }
 
 /** Everything that never moves: built once, never re-rendered. */
+if (USE_MODELS && typeof window !== 'undefined') preloadModels();
+
 export function Room() {
   return (
     <group>
       <Floor />
       <Walls />
-      {MAP_OBJECTS.map((object) => (
-        <Furniture key={object.id} o={object} />
-      ))}
-      {SEAT_DEFINITIONS.map((seat) => (
-        <Seat key={seat.seatId} seat={seat} />
-      ))}
+      {MAP_OBJECTS.map((object) =>
+        USE_MODELS && object.kind !== 'hanging_lamp' ? (
+          <ObjectModel key={object.id} o={object} fallback={<Furniture o={object} />} />
+        ) : (
+          <Furniture key={object.id} o={object} />
+        ),
+      )}
+      {SEAT_DEFINITIONS.map((seat) =>
+        USE_MODELS ? (
+          <SeatModel key={seat.seatId} seat={seat} fallback={<Seat seat={seat} />} />
+        ) : (
+          <Seat key={seat.seatId} seat={seat} />
+        ),
+      )}
     </group>
   );
 }

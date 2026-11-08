@@ -15,6 +15,8 @@ import { AudioDock } from "./AudioDock";
 import dynamic from "next/dynamic";
 import { CafeCanvas } from "./CafeCanvas";
 import { RENDERER_3D } from "@/lib/flags";
+import { GAMING_ROUTE } from "@/game/gamingEntry";
+import { GamingPrompt } from "./GamingPrompt";
 import { webglAvailable } from "@/three/quality";
 
 // Loaded only when the 3D renderer is selected, and only in the browser:
@@ -146,6 +148,13 @@ export function CafeShell() {
     }
   }, [compact]);
 
+  // Khu Chơi Game is its own page. Leaving the café goes through the same
+  // path as the "Rời quán" button so the seat and voice are released at once.
+  const enterGaming = useCallback(() => {
+    void controls.leaveCafe();
+    router.push(GAMING_ROUTE);
+  }, [controls, router]);
+
   const interact = useCallback(() => {
     if (seated) controls.stand();
     else controls.sit();
@@ -221,6 +230,7 @@ export function CafeShell() {
       <FocusMusicPlayer />
       <ConnectionBanner />
       <InteractionPrompt />
+      {!screenFocused && !chatModal ? <GamingPrompt onEnter={enterGaming} /> : null}
       <Toasts />
       <DonationPrompt
         hidden={showOnboarding || screenFocused || Boolean(dockTab)}

@@ -10,8 +10,10 @@ import type { AvatarRenderState } from '@/game/avatar';
 import { onTable, tableCentre } from '@/game/tableHit';
 import { useKeyboardInput } from '@/game/useKeyboardInput';
 import { useCafeStore } from '@/state/useCafeStore';
-import { mat, yawOf } from './materials';
+import { mat, seatDrawPosition, yawOf } from './materials';
 import { Room } from './Room';
+import { CharacterModel, HIP_TO_HEAD_MODEL, SIT_HIP, STAND_HEAD, preloadCharacters } from './Character';
+import { USE_MODELS } from '@/lib/flags';
 import { Atmosphere } from './Atmosphere';
 import { FPS_WINDOW, MIN_FPS, QUALITY, initialTier } from './quality';
 import type { QualityTier } from './quality';
@@ -61,7 +63,7 @@ function IsoCamera({ engineRef }: { engineRef: Props['engineRef'] }) {
 // ------------------------------------------------------------- avatars
 
 /** Seat surface height per seat type, in world units. */
-const SEAT_HEIGHT: Record<SeatType, number> = { chair: 0.45, stool: 0.75, sofa: 0.52, armchair: 0.4 };
+const SEAT_HEIGHT: Record<SeatType, number> = { chair: 0.42, stool: 0.75, sofa: 0.52, armchair: 0.42 };
 /** Hip height when standing: the legs pivot here. */
 const HIP = 0.42;
 /** From hip to the top of the head. */
@@ -79,40 +81,43 @@ function hipHeight(a: AvatarRenderState): number {
 }
 
 export function headTop(a: AvatarRenderState): number {
-  return hipHeight(a) + HIP_TO_HEAD;
+  if (!USE_MODELS) return hipHeight(a) + HIP_TO_HEAD;
+  return a.seated ? hipHeight(a) + HIP_TO_HEAD_MODEL : STAND_HEAD;
 }
+
+/**
+ * Seated characters sit back on the chair, not on its front edge: the
+ * thighs (pointing forward) then end over the seat front, under the table.
+ */
+const SIT_BACK = 0.12;
+
+if (USE_MODELS && typeof window !== 'undefined') preloadCharacters();
 
 const presetOf = (id: string) => AVATAR_PRESETS.find((preset) => preset.id === id) ?? AVATAR_PRESETS[0];
 
 function Avatar({ state }: { state: React.MutableRefObject<AvatarRenderState> }) {
   const root = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
-  const legL = useRef<THREE.Mesh>(null);
-  const legR = useRef<THREE.Mesh>(null);
-  const s = state.current;
-  const colours = presetOf(s.presetId);
 
   useFrame(() => {
     const a = state.current;
     const g = root.current;
-    if (!g || !body.current || !legL.current || !legR.current) return;
-    g.position.set(a.x, 0, a.y);
+    if (!g || !body.current) return;
     const seat = seatOf(a);
-    // A sofa seat faces away from its backrest (+z), not towards the sofa
-    // block the seat definition points at.
-    g.rotation.y = seat?.seatType === 'sofa' ? 0 : yawOf(a.direction);
-    const swing = a.moving && !a.reducedMotion ? Math.sin(a.phase * 11) * 0.5 : 0;
-    const bob = a.moving && !a.reducedMotion ? Math.abs(Math.sin(a.phase * 11)) * 0.04 : 0;
-    if (a.seated) {
-      // Hip on the seat surface, thighs forward.
-      body.current.position.y = hipHeight(a) - HIP;
-      legL.current.rotation.x = -Math.PI / 2;
-      legR.current.rotation.x = -Math.PI / 2;
+    // Seated on a chair: sit where the chair is drawn, pulled in to the table.
+    const yaw = seat?.seatType === 'sofa' ? 0 : yawOf(a.direction);
+    if (seat && seat.seatType !== 'sofa') {
+      const at = seatDrawPosition(seat);
+      // Back towards the backrest, away from the table.
+      g.position.set(at.x - Math.sin(yaw) * SIT_BACK, 0, at.z - Math.cos(yaw) * SIT_BACK);
     } else {
-      body.current.position.y = bob;
-      legL.current.rotation.x = swing;
-      legR.current.rotation.x = -swing;
+      g.position.set(a.x, 0, a.y);
     }
+    // A sofa seat faces away from its backrest (+z).
+    g.rotation.y = yaw;
+    // The `sit` clip folds the legs forward and drops the hips to SIT_HIP;
+    // lift the whole character so the hips rest on the seat surface.
+    body.current.position.y = a.seated ? hipHeight(a) - CHARACTER_HIP : 0;
   });
 
   return (
@@ -122,21 +127,47 @@ function Avatar({ state }: { state: React.MutableRefObject<AvatarRenderState> })
         <meshBasicMaterial color="#3a281c" transparent opacity={0.22} depthWrite={false} />
       </mesh>
       <group ref={body}>
-        <mesh ref={legL} position={[-0.09, 0.42, 0]} geometry={LEG} material={mat(shadeHex(colours.top, -0.45))} castShadow />
-        <mesh ref={legR} position={[0.09, 0.42, 0]} geometry={LEG} material={mat(shadeHex(colours.top, -0.45))} castShadow />
-        <mesh position={[0, 0.72, 0]} castShadow material={mat(colours.top)}>
-          <cylinderGeometry args={[0.17, 0.21, 0.55, 6]} />
-        </mesh>
-        <mesh position={[0, 1.12, 0]} castShadow material={mat(colours.skin)}>
-          <icosahedronGeometry args={[0.17, 0]} />
-        </mesh>
-        <mesh position={[0, 1.2, -0.03]} castShadow material={mat(colours.hair)}>
-          <icosahedronGeometry args={[0.165, 0]} />
-        </mesh>
-        <mesh position={[0, 0.98, 0.17]} material={mat(colours.accent)}>
-          <boxGeometry args={[0.12, 0.04, 0.03]} />
-        </mesh>
+        {USE_MODELS ? (
+          <CharacterModel state={state} fallback={<BlockAvatar state={state} />} />
+        ) : (
+          <BlockAvatar state={state} />
+        )}
       </group>
+    </group>
+  );
+}
+
+/** Hip height of the character model in its `sit` pose, after scaling. */
+const CHARACTER_HIP = USE_MODELS ? SIT_HIP : 0.3;
+
+/** The original low-poly figure: used when models are off or still loading. */
+function BlockAvatar({ state }: { state: React.MutableRefObject<AvatarRenderState> }) {
+  const legL = useRef<THREE.Mesh>(null);
+  const legR = useRef<THREE.Mesh>(null);
+  const torso = useRef<THREE.Group>(null);
+  const colours = presetOf(state.current.presetId);
+  useFrame(() => {
+    const a = state.current;
+    if (!legL.current || !legR.current || !torso.current) return;
+    const swing = a.moving && !a.reducedMotion ? Math.sin(a.phase * 11) * 0.5 : 0;
+    const bob = a.moving && !a.reducedMotion ? Math.abs(Math.sin(a.phase * 11)) * 0.04 : 0;
+    torso.current.position.y = a.seated ? CHARACTER_HIP - HIP : bob;
+    legL.current.rotation.x = a.seated ? -Math.PI / 2 : swing;
+    legR.current.rotation.x = a.seated ? -Math.PI / 2 : -swing;
+  });
+  return (
+    <group ref={torso}>
+      <mesh ref={legL} position={[-0.09, 0.42, 0]} geometry={LEG} material={mat(shadeHex(colours.top, -0.45))} castShadow />
+      <mesh ref={legR} position={[0.09, 0.42, 0]} geometry={LEG} material={mat(shadeHex(colours.top, -0.45))} castShadow />
+      <mesh position={[0, 0.72, 0]} castShadow material={mat(colours.top)}>
+        <cylinderGeometry args={[0.17, 0.21, 0.55, 6]} />
+      </mesh>
+      <mesh position={[0, 1.12, 0]} castShadow material={mat(colours.skin)}>
+        <icosahedronGeometry args={[0.17, 0]} />
+      </mesh>
+      <mesh position={[0, 1.2, -0.03]} castShadow material={mat(colours.hair)}>
+        <icosahedronGeometry args={[0.165, 0]} />
+      </mesh>
     </group>
   );
 }
@@ -385,7 +416,14 @@ function FrameRateGuard({ tier, onLow }: { tier: QualityTier; onLow: () => void 
  * same CafeEngine drives it; this only replaces how the room is drawn.
  * Time of day, lamps, the live-weather window and rain: see Atmosphere.
  */
-export default function CafeScene3D({ engineRef, touchVectorRef, onSit, onStand, onInteract, onOwnTableHover }: Props) {
+export default function CafeScene3D({
+  engineRef,
+  touchVectorRef,
+  onSit,
+  onStand,
+  onInteract,
+  onOwnTableHover,
+}: Props) {
   const inputRef = useKeyboardInput(onInteract);
   const registry = useRef<PlateRegistry>({ avatars: new Map<string, AvatarRef>(), elements: new Map() }).current;
   const [roster, setRoster] = useState<string[]>([]);
@@ -420,7 +458,12 @@ export default function CafeScene3D({ engineRef, touchVectorRef, onSit, onStand,
         <PlateProjector registry={registry} />
         <SeatHighlight engineRef={engineRef} />
         <EngineDriver engineRef={engineRef} touchVectorRef={touchVectorRef} inputRef={inputRef} />
-        <Picker engineRef={engineRef} onSit={onSit} onStand={onStand} onOwnTableHover={onOwnTableHover} />
+        <Picker
+          engineRef={engineRef}
+          onSit={onSit}
+          onStand={onStand}
+          onOwnTableHover={onOwnTableHover}
+        />
       </Canvas>
       <NamePlates roster={roster} registry={registry} />
     </div>

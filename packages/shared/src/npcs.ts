@@ -53,8 +53,8 @@ const NPC_SPECS: NpcSpec[] = [
     displayName: 'Khách quen',
     presetId: 'rose',
     activity: 'chatting',
-    x: 6.6,
-    y: 13.4,
+    x: 15.6,
+    y: 8.6,
     direction: 'south',
   },
   {
@@ -62,8 +62,8 @@ const NPC_SPECS: NpcSpec[] = [
     displayName: 'Khách quen',
     presetId: 'sage',
     activity: 'chatting',
-    x: 7.4,
-    y: 14.2,
+    x: 16.4,
+    y: 9.4,
     direction: 'north',
   },
 ];

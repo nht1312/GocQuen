@@ -16,6 +16,8 @@ import { PALETTE, WALL_HEIGHT, hash2, shade } from './palette';
 import { tilePath } from './primitives';
 import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
 import type { WorldAmbience } from '@/world/ambience';
+import { SkyFader, paintSkyLayers, skyNameFor } from '@/world/skybox';
+import type { SkyName } from '@/world/skybox';
 
 /** The window wall is split into this many large panes. */
 const WINDOW_PANES = 4;
@@ -100,6 +102,8 @@ export class CafeRenderer {
   private viewWidth = 0;
   private viewHeight = 0;
   private sky: Sky = DEFAULT_SKY;
+  private skyName: SkyName = 'day';
+  private skyFader = new SkyFader();
   /** 0..1, eased towards the lamps' on/off state so switching never pops. */
   private lampLevel = 0;
   private lastFrame = 0;
@@ -252,6 +256,31 @@ export class CafeRenderer {
       ctx.restore();
       return;
     }
+    if (kind === 'neon') {
+      // "KHU CHƠI GAME" in purple neon on a dark panel above the stations.
+      const a = worldToScreen(from + 0.3, 1);
+      const b = worldToScreen(to - 0.3, 1);
+      ctx.fillStyle = '#1d1726';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y - 40);
+      ctx.lineTo(b.x, b.y - 40);
+      ctx.lineTo(b.x, b.y - 118);
+      ctx.lineTo(a.x, a.y - 118);
+      ctx.closePath();
+      ctx.fill();
+      ctx.save();
+      ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2 - 80);
+      ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x));
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 15px ui-sans-serif, system-ui, sans-serif';
+      ctx.shadowColor = '#a866ff';
+      ctx.shadowBlur = reducedMotion ? 6 : 8 + Math.sin(time / 600) * 3;
+      ctx.fillStyle = '#d9c2ff';
+      ctx.fillText('KHU CHƠI GAME', 0, 0);
+      ctx.restore();
+      return;
+    }
     if (kind !== 'window') return;
     this.drawWindowWall(ctx, from, to, time, reducedMotion);
   }
@@ -325,8 +354,20 @@ export class CafeRenderer {
     ctx.fillStyle = sky;
     ctx.fillRect(minX, minY, width, height);
 
+    // The panorama for the time of day, with live cloud and rain over it.
+    // The gradient above stays as the fallback while it downloads.
+    const skyShown = paintSkyLayers(
+      ctx,
+      this.skyFader.update(this.skyName, performance.now(), reducedMotion),
+      minX,
+      minY,
+      width,
+      height,
+      { cloud: this.sky.cloud, rain: rain, night },
+    );
+
     // Sun by day, moon at night — hidden behind heavy cloud.
-    if (this.sky.cloud < 0.85) {
+    if (!skyShown && this.sky.cloud < 0.85) {
       const body = at(0.78, top - 26);
       const visible = 1 - Math.max(0, this.sky.cloud - 0.4) / 0.45;
       ctx.globalAlpha = Math.max(0, Math.min(1, visible));
@@ -344,7 +385,7 @@ export class CafeRenderer {
     }
 
     // Stars on a clear night.
-    if (night > 0.6 && this.sky.cloud < 0.5) {
+    if (!skyShown && night > 0.6 && this.sky.cloud < 0.5) {
       ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * night * (1 - this.sky.cloud * 2)})`;
       for (let i = 0; i < 26; i += 1) {
         const s = at(hash2(i, 1), top - 6 - hash2(i, 2) * 40);
@@ -571,6 +612,7 @@ export class CafeRenderer {
   render(ctx: CanvasRenderingContext2D, scene: SceneInput): void {
     if (!this.floor) this.floor = this.buildFloor();
     this.sky = skyOf(scene.ambience);
+    this.skyName = skyNameFor(scene.ambience);
     const target = scene.ambience?.lightsOn ? 1 : 0;
     const dt = this.lastFrame ? Math.min(0.1, (scene.time - this.lastFrame) / 1000) : 1;
     this.lastFrame = scene.time;

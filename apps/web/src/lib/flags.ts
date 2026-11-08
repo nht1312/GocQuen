@@ -24,3 +24,10 @@ export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === '1';
  * one stays the default until the 3D scene reaches feature parity.
  */
 export const RENDERER_3D = process.env.NEXT_PUBLIC_RENDERER === '3d';
+
+/**
+ * 3D renderer only: use the Kenney Furniture Kit models in
+ * /public/models/kenney instead of the built-in low-poly shapes. On by
+ * default; `NEXT_PUBLIC_3D_MODELS=0` keeps the procedural furniture.
+ */
+export const USE_MODELS = process.env.NEXT_PUBLIC_3D_MODELS !== '0';
