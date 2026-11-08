@@ -24,15 +24,27 @@ const THEME = process.env.NEXT_PUBLIC_SKYBOX_THEME;
 const FIXED: SkyName | null = THEME === 'space' || THEME === 'alien' ? THEME : null;
 
 /** The panorama that follows, so it is already downloaded when needed. */
-const NEXT: Record<SkyName, SkyName> = { morning: 'day', day: 'morning', night: 'morning', space: 'space', alien: 'alien' };
+const NEXT: Record<SkyName, SkyName> = { alien: 'morning', morning: 'day', day: 'night', night: 'space', space: 'alien' };
 
 export const SKY_FADE_MS = 4000;
 
-export function skyNameFor(ambience: WorldAmbience | null | undefined): SkyName {
+/** Hour (0–23) in Vietnam time (UTC+7, no daylight saving), whatever the visitor's timezone. */
+function vietnamHour(now: Date): number {
+  return (now.getUTCHours() + 7) % 24;
+}
+
+/**
+ * Window sky by Vietnam clock:
+ *   00–05 space · 05–06 alien · 06–07 morning · 07–18 day · 18–24 night
+ */
+export function skyNameFor(_ambience?: WorldAmbience | null, now: Date = new Date()): SkyName {
   if (FIXED) return FIXED;
-  if (!ambience) return 'day';
-  if (ambience.phase === 'dawn' || ambience.phase === 'dusk') return 'morning';
-  return ambience.phase === 'night' ? 'night' : 'day';
+  const hour = vietnamHour(now);
+  if (hour < 5) return 'space';
+  if (hour < 6) return 'alien';
+  if (hour < 7) return 'morning';
+  if (hour < 18) return 'day';
+  return 'night';
 }
 
 const cache = new Map<SkyName, HTMLImageElement>();

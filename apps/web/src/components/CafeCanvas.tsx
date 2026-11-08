@@ -85,8 +85,9 @@ export function CafeCanvas({
     const at = engine.cameraTarget();
     const reaction = renderer.interactCat(at.x, at.y);
     if (!reaction) return;
-    const audio = useCafeStore.getState().audio;
-    playCatSound(reaction, audio.muteAll ? 0 : audio.ui * audio.master);
+    const { audio, personalMusic } = useCafeStore.getState();
+    // Silent while the listener's own music plays, like the rest of the café.
+    playCatSound(reaction, audio.muteAll || personalMusic ? 0 : audio.ui * audio.master);
   }, [engineRef]);
   const interactCatRef = useRef(interactCat);
   interactCatRef.current = interactCat;

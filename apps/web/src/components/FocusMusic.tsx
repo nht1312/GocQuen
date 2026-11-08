@@ -66,7 +66,7 @@ export function FocusMusicDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="mb-3 text-[11px] leading-snug text-linen/60">
-          Dán link nhạc để nghe trong lúc tập trung. Chỉ mình bạn nghe được; nhạc dừng khi bạn đổi chế độ hoặc đứng dậy.
+          Dán link nhạc để nghe trong lúc tập trung. Khi nhạc phát, mọi âm thanh của quán sẽ tắt để bạn chỉ nghe nhạc của mình. Chỉ mình bạn nghe được; nhạc dừng khi bạn đổi chế độ hoặc đứng dậy.
         </p>
 
         {music ? (
@@ -196,15 +196,29 @@ export function FocusMusicPlayer() {
         <div className="pointer-events-auto fixed bottom-3 left-3 z-30 overflow-hidden rounded-xl border border-white/10 bg-black shadow-panel">
           <div className="flex items-center justify-between gap-2 bg-espresso/95 px-2 py-1 text-[10px] text-linen/75">
             <span className="truncate">♪ {music?.label}</span>
-            <button type="button" onClick={() => setMusic(null)} className="shrink-0 hover:text-cream">
-              Dừng
-            </button>
+            <span className="flex shrink-0 gap-2">
+              {music?.source.kind === 'youtube' ? (
+                <a
+                  href={music.source.watchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Nếu video báo không phát được ở đây, mở trên YouTube"
+                  className="hover:text-cream"
+                >
+                  Mở YouTube
+                </a>
+              ) : null}
+              <button type="button" onClick={() => setMusic(null)} className="hover:text-cream">
+                Dừng
+              </button>
+            </span>
           </div>
           <iframe
             key={embed}
             src={embed}
             title="Nhạc riêng cho chế độ tập trung"
             allow="autoplay; encrypted-media; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
             width={200}
             height={113}
             className="block"

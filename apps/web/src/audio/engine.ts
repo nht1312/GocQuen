@@ -561,11 +561,14 @@ export class CafeAudioEngine {
     // Focus Mode dims the room and the murmur; it never changes who can hear
     // whom, only what this listener hears (SPEC 6.2).
     const focusDamp = settings.focusMode ? 0.35 : 1;
-    ramp(this.layers.get('music')!, this.personalMusic ? 0 : settings.music);
-    ramp(this.layers.get('ambience')!, settings.ambience * focusDamp);
-    ramp(this.layers.get('weather')!, this.weatherOn ? settings.weather * focusDamp * this.weatherIntensity : 0);
-    ramp(this.layers.get('crowd')!, settings.crowd * focusDamp);
-    ramp(this.layers.get('ui')!, settings.ui);
+    // The listener's own music is playing: every café sound goes quiet so
+    // only their music remains. Table voice is left alone (see below).
+    const room = this.personalMusic ? 0 : 1;
+    ramp(this.layers.get('music')!, settings.music * room);
+    ramp(this.layers.get('ambience')!, settings.ambience * focusDamp * room);
+    ramp(this.layers.get('weather')!, this.weatherOn ? settings.weather * focusDamp * this.weatherIntensity * room : 0);
+    ramp(this.layers.get('crowd')!, settings.crowd * focusDamp * room);
+    ramp(this.layers.get('ui')!, settings.ui * room);
     ramp(this.layers.get('voice')!, settings.voice);
   }
 

@@ -5,7 +5,7 @@
 
 export type PersonalSource =
   | { kind: 'audio'; url: string }
-  | { kind: 'youtube'; embedUrl: string }
+  | { kind: 'youtube'; embedUrl: string; watchUrl: string }
   | { kind: 'soundcloud'; embedUrl: string };
 
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)(\?.*)?$/i;
@@ -23,21 +23,35 @@ export function parseMusicLink(raw: string): PersonalSource | { error: string } 
 
   if (host === 'youtube.com' || host === 'youtu.be' || host === 'music.youtube.com') {
     const list = url.searchParams.get('list');
+    const path = url.pathname.split('/').filter(Boolean);
     const id =
       host === 'youtu.be'
-        ? url.pathname.slice(1)
-        : url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/embed/')
-          ? url.pathname.split('/')[2]
+        ? path[0]
+        : ['shorts', 'embed', 'live', 'v'].includes(path[0] ?? '')
+          ? path[1]
           : url.searchParams.get('v');
     const params = new URLSearchParams({ autoplay: '1', loop: '1', controls: '1', playsinline: '1', rel: '0' });
     if (id && /^[\w-]{6,}$/.test(id)) {
-      params.set('playlist', list ?? id); // loop needs a playlist
-      return { kind: 'youtube', embedUrl: `https://www.youtube-nocookie.com/embed/${id}?${params}` };
+      // `playlist` takes video ids, not a list id: passing the `list=` of a
+      // mix/playlist link here broke the player. Loop the one video instead.
+      params.set('playlist', id);
+      return {
+        kind: 'youtube',
+        embedUrl: `https://www.youtube.com/embed/${id}?${params}`,
+        watchUrl: `https://www.youtube.com/watch?v=${id}`,
+      };
     }
-    if (list) {
+    // A playlist link with no video: only real playlists (PL…) embed; mixes
+    // (RD…) and auto lists do not.
+    if (list && !list.startsWith('RD')) {
       params.set('list', list);
-      return { kind: 'youtube', embedUrl: `https://www.youtube-nocookie.com/embed/videoseries?${params}` };
+      return {
+        kind: 'youtube',
+        embedUrl: `https://www.youtube.com/embed/videoseries?${params}`,
+        watchUrl: `https://www.youtube.com/playlist?list=${list}`,
+      };
     }
+    if (list) return { error: 'Danh sách phát tự động (Mix) của YouTube không nhúng được. Hãy dán link một video.' };
     return { error: 'Không tìm thấy video trong link YouTube này.' };
   }
 
