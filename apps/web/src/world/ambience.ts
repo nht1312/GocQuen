@@ -38,7 +38,11 @@ const LON = Number(process.env.NEXT_PUBLIC_WEATHER_LON ?? 106.7009);
 const LOCATION_LABEL = process.env.NEXT_PUBLIC_WEATHER_LABEL ?? 'TP. Hồ Chí Minh';
 const DISABLED = process.env.NEXT_PUBLIC_LIVE_WEATHER === '0';
 
-const REFRESH_MS = 15 * 60 * 1000;
+/** Weather poll. Open-Meteo's "current" values only change every ~15 min,
+ * so polling faster than this gains nothing and only costs requests. */
+const REFRESH_MS = 5 * 60 * 1000;
+/** Clock tick: sky, lamps and day/night follow the real time this closely. */
+const CLOCK_MS = 10 * 1000;
 /** Opening hours of the lamps, minutes since midnight (café local time). */
 export const LIGHTS_ON_AT = 18 * 60;
 export const LIGHTS_OFF_AT = 6 * 60;
@@ -175,11 +179,21 @@ export function startAmbience(onChange: (ambience: WorldAmbience) => void): () =
   emit();
   void refresh();
   const weatherTimer = window.setInterval(() => void refresh(), REFRESH_MS);
-  const clockTimer = window.setInterval(emit, 60 * 1000);
+  const clockTimer = window.setInterval(emit, CLOCK_MS);
+  // Background tabs throttle timers; catch up the moment the café is
+  // looked at again, or the network comes back.
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void refresh();
+  };
+  const onOnline = () => void refresh();
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('online', onOnline);
   return () => {
     stopped = true;
     window.clearInterval(weatherTimer);
     window.clearInterval(clockTimer);
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('online', onOnline);
   };
 }
 

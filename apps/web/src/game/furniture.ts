@@ -209,7 +209,7 @@ export function drawObjectSlice(
     }
     case 'table_small':
     case 'coffee_table': {
-      const height = object.kind === 'coffee_table' ? 28 : 40;
+      const height = object.kind === 'coffee_table' ? 36 : 40;
       tableSlice(ctx, slice, height, PALETTE.woodSide);
       if (object.kind === 'table_small') cup(ctx, cx - 0.12, cy, height + 2);
       break;
@@ -310,8 +310,12 @@ export function drawSeat(ctx: Ctx, seat: SeatDefinition, occupied: boolean): voi
     return;
   }
   if (seat.seatType === 'armchair') {
+    // Back on the side away from the table, like the chairs below.
     isoBox(ctx, seat.x + 0.1, seat.y + 0.1, 0.8, 0.8, 26, boxColors(PALETTE.fabricSide));
-    isoBox(ctx, seat.x + 0.1, seat.y + 0.1, 0.8, 0.26, 54, boxColors(PALETTE.sofaSide));
+    const vertical = seat.facing === 'north_east' || seat.facing === 'south_west';
+    const away = seat.facing === 'north_west' || seat.facing === 'north_east' ? 0.64 : 0.1;
+    if (vertical) isoBox(ctx, seat.x + 0.1, seat.y + away, 0.8, 0.26, 54, boxColors(PALETTE.sofaSide));
+    else isoBox(ctx, seat.x + away, seat.y + 0.1, 0.26, 0.8, 54, boxColors(PALETTE.sofaSide));
     return;
   }
 

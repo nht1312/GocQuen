@@ -60,7 +60,10 @@ export function useCafe() {
     const state = store.getState();
     if (!audioRef.current) audioRef.current = new CafeAudioEngine();
     try {
-      await audioRef.current.start(state.audio);
+      await audioRef.current.start({
+        ...state.audio,
+        focusMode: state.self?.status === 'focus' && Boolean(state.self?.seatId),
+      });
       store.getState().setAudioStarted(true);
       store.getState().setAudioBlocked(false);
     } catch {
@@ -271,7 +274,10 @@ export function useCafe() {
   // Keep the soundscape in step with the controls.
   useEffect(() =>
     store.subscribe((state) => {
-      audioRef.current?.applySettings(state.audio);
+      // "Cần tập trung" at a table quietens the room for this listener
+      // (the old Focus Mode switch); it never changes who can hear whom.
+      const focusing = state.self?.status === 'focus' && Boolean(state.self?.seatId);
+      audioRef.current?.applySettings({ ...state.audio, focusMode: focusing });
       audioRef.current?.setPersonalMusicActive(Boolean(state.personalMusic));
       if (state.ambience) {
         audioRef.current?.setWeatherIntensity(state.ambience.live ? state.ambience.rain : 1);
@@ -287,11 +293,17 @@ export function useCafe() {
 
   const setStatus = useCallback(
     (status: PlayerStatus) => {
-      // Switching to another mode ends personal Focus Mode music.
-      store.getState().setPersonalMusic(null);
+      const state = store.getState();
+      // A mode is something you do at a table.
+      if (!state.self?.seatId) {
+        state.showToast('Hãy ngồi vào một bàn để chọn chế độ.', 'info');
+        return;
+      }
+      // Any other mode ends the personal music of "Cần tập trung".
+      if (status !== 'focus') state.setPersonalMusic(null);
       socketRef.current?.emit(CLIENT_EVENTS.playerState, { status });
     },
-    [],
+    [store],
   );
 
   const sit = useCallback(
@@ -306,9 +318,15 @@ export function useCafe() {
   );
 
   const stand = useCallback(() => {
+    const state = store.getState();
+    state.setPersonalMusic(null);
+    // Modes belong to a seat: standing up goes back to "Đang rảnh".
+    if (state.self?.status !== 'available' && state.self?.status !== 'in_conversation') {
+      socketRef.current?.emit(CLIENT_EVENTS.playerState, { status: 'available' });
+    }
     engineRef.current?.stand();
     playUi('stand');
-  }, [playUi]);
+  }, [playUi, store]);
 
   /**
    * Close the voice room and put the UI back to "not in a conversation".

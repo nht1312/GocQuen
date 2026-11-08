@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { MAP_OBJECTS, SEATS_BY_ID, SEAT_DEFINITIONS } from "@virtual-cafe/shared";
 import type { CafeEngine, InputState, MoveAxis } from "@/game/engine";
 import { CafeRenderer } from "@/game/renderer";
+import { playCatSound } from "@/game/cats";
+import { CatPrompt } from "./CatPrompt";
 import { useCafeStore } from "@/state/useCafeStore";
 
 interface Props {
@@ -74,6 +76,20 @@ export function CafeCanvas({
   onOwnTableHover,
 }: Props) {
   const hoveringRef = useRef(false);
+
+  /** Stroke or hug the cat beside you (F, or the prompt's button on touch). */
+  const interactCat = useCallback(() => {
+    const engine = engineRef.current;
+    const renderer = rendererRef.current;
+    if (!engine || !renderer) return;
+    const at = engine.cameraTarget();
+    const reaction = renderer.interactCat(at.x, at.y);
+    if (!reaction) return;
+    const audio = useCafeStore.getState().audio;
+    playCatSound(reaction, audio.muteAll ? 0 : audio.ui * audio.master);
+  }, [engineRef]);
+  const interactCatRef = useRef(interactCat);
+  interactCatRef.current = interactCat;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CafeRenderer | null>(null);
   const inputRef = useRef<InputState>({
@@ -95,6 +111,7 @@ export function CafeCanvas({
 
     let frame = 0;
     let last = performance.now();
+    let lastCatCheck = 0;
 
     const resize = () => {
       const parent = canvas.parentElement;
@@ -151,6 +168,12 @@ export function CafeCanvas({
           ...engine.sceneInput(),
           ambience: useCafeStore.getState().ambience,
         });
+        // Is a cat within reach? Checked a few times a second, not per frame.
+        if (now - lastCatCheck > 150) {
+          lastCatCheck = now;
+          const at = engine.cameraTarget();
+          useCafeStore.getState().setNearbyCat(renderer.nearbyCat(at.x, at.y));
+        }
       } else {
         renderer.render(ctx, { ...emptyRoom(now), ambience: useCafeStore.getState().ambience });
       }
@@ -182,6 +205,11 @@ export function CafeCanvas({
       if (key) {
         inputRef.current[key] = true;
         event.preventDefault();
+        return;
+      }
+      if (event.code === "KeyF") {
+        event.preventDefault();
+        interactCatRef.current();
         return;
       }
       if (event.code === "KeyE" || event.code === "Space") {
@@ -284,6 +312,7 @@ export function CafeCanvas({
   };
 
   return (
+    <>
     <canvas
       ref={canvasRef}
       onClick={handleClick}
@@ -294,5 +323,7 @@ export function CafeCanvas({
       role="application"
       tabIndex={0}
     />
+    <CatPrompt onInteract={interactCat} />
+    </>
   );
 }

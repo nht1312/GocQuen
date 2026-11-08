@@ -29,7 +29,7 @@ export function parseMusicLink(raw: string): PersonalSource | { error: string } 
         : url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/embed/')
           ? url.pathname.split('/')[2]
           : url.searchParams.get('v');
-    const params = new URLSearchParams({ autoplay: '1', loop: '1', controls: '0', playsinline: '1' });
+    const params = new URLSearchParams({ autoplay: '1', loop: '1', controls: '1', playsinline: '1', rel: '0' });
     if (id && /^[\w-]{6,}$/.test(id)) {
       params.set('playlist', list ?? id); // loop needs a playlist
       return { kind: 'youtube', embedUrl: `https://www.youtube-nocookie.com/embed/${id}?${params}` };

@@ -14,6 +14,11 @@ import { AvatarRenderState, drawAvatar, drawNamePlate } from './avatar';
 import { Slice, drawObjectSlice, drawSeat, drawSeatHighlight, sliceObject } from './furniture';
 import { PALETTE, WALL_HEIGHT, hash2, shade } from './palette';
 import { tilePath } from './primitives';
+import { CatColony } from './cats';
+import type { CatReaction } from './cats';
+
+/** How close (tiles) you must stand to a cat to stroke or hug it. */
+const CAT_REACH = 1.6;
 import { SCENE_MARGIN, sceneExtent, worldScaleFor } from './viewport';
 import type { WorldAmbience } from '@/world/ambience';
 import { SkyFader, paintSkyLayers, skyNameFor } from '@/world/skybox';
@@ -114,6 +119,9 @@ export class CafeRenderer {
   private skyFader = new SkyFader();
   /** 0..1, eased towards the lamps' on/off state so switching never pops. */
   private lampLevel = 0;
+  private cats = new CatColony();
+  /** Scene time of the last frame, so a click's effect starts now. */
+  private lastTime = 0;
   private lastFrame = 0;
 
   resize(width: number, height: number, dpr: number): void {
@@ -146,7 +154,7 @@ export class CafeRenderer {
       for (let x = 1; x < MAP_WIDTH - 1; x += 1) {
         const noise = hash2(x, y);
         // Stone by the counter and the entrance, boards everywhere else.
-        const isStone = x <= 3 || (x <= 4 && y >= 14);
+        const isStone = x <= 2;
         const base = isStone
           ? shade(PALETTE.floorStone, (noise - 0.5) * 0.08)
           : PALETTE.floorWood[Math.floor(noise * PALETTE.floorWood.length)];
@@ -716,6 +724,11 @@ export class CafeRenderer {
       });
     }
 
+    // Café cats: asleep on the counter and in the lounge, one wandering.
+    this.lastTime = scene.time;
+    this.cats.update(Math.min(dt, 0.1), scene.reducedMotion);
+    drawables.push(...this.cats.drawables(scene.time, scene.reducedMotion));
+
     drawables.sort((a, b) => a.depth - b.depth);
     for (const drawable of drawables) drawable.draw(ctx);
 
@@ -815,6 +828,27 @@ export class CafeRenderer {
     else offsetY = Math.min(-top + margin, Math.max(this.viewHeight - bottom - margin, offsetY));
 
     return { x: Math.round(offsetX), y: Math.round(offsetY) };
+  }
+
+  /** The nearest café cat within reach of world (x, y), if any. */
+  private nearestCat(x: number, y: number) {
+    let best: { target: ReturnType<CatColony['targets']>[number]; distance: number } | null = null;
+    for (const target of this.cats.targets()) {
+      const distance = Math.hypot(target.x - x, target.y - y);
+      if (distance <= CAT_REACH && (!best || distance < best.distance)) best = { target, distance };
+    }
+    return best?.target ?? null;
+  }
+
+  /** What pressing the cat key would do from (x, y): stroke, hug, or nothing. */
+  nearbyCat(x: number, y: number): CatReaction | null {
+    return this.nearestCat(x, y)?.kind ?? null;
+  }
+
+  /** Stroke or hug the nearest cat within reach of (x, y). */
+  interactCat(x: number, y: number): CatReaction | null {
+    const target = this.nearestCat(x, y);
+    return target ? target.react(this.lastTime) : null;
   }
 
   /** CSS pixel position of a world point, for DOM overlays. */

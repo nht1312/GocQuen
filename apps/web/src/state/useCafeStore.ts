@@ -27,6 +27,7 @@ import { readLocal, writeLocal } from '@/lib/storage';
 import type { NoiseCancellationMode } from '@/voice/voiceClient';
 import type { WorldAmbience } from '@/world/ambience';
 import type { PersonalSource } from '@/audio/personalMusic';
+import type { CatReaction } from '@/game/cats';
 
 export type ConnectionPhase =
   | 'idle'
@@ -79,6 +80,8 @@ interface CafeState {
   ambience: WorldAmbience | null;
   /** Focus Mode music from a link this listener pasted. Never leaves the browser. */
   personalMusic: { source: PersonalSource; label: string } | null;
+  /** A café cat is within reach: what F would do to it. */
+  nearbyCat: CatReaction | null;
 
   chat: ChatMessage[];
   unreadChat: number;
@@ -128,6 +131,7 @@ interface CafeState {
   setNoiseCancellationMode: (mode: NoiseCancellationMode | null) => void;
   setAmbience: (ambience: WorldAmbience) => void;
   setPersonalMusic: (music: { source: PersonalSource; label: string } | null) => void;
+  setNearbyCat: (cat: CatReaction | null) => void;
 
   pushChat: (message: ChatMessage) => void;
   setChatOpen: (open: boolean) => void;
@@ -147,8 +151,11 @@ interface CafeState {
   reset: () => void;
 }
 
-const initialAudio = (): AudioSettings =>
-  readLocal<AudioSettings>(STORAGE_KEYS.audio, { ...DEFAULT_AUDIO_SETTINGS });
+const initialAudio = (): AudioSettings => ({
+  ...readLocal<AudioSettings>(STORAGE_KEYS.audio, { ...DEFAULT_AUDIO_SETTINGS }),
+  // Focus now follows the "Cần tập trung" status, not a stored switch.
+  focusMode: false,
+});
 
 export const useCafeStore = create<CafeState>((set, get) => ({
   phase: 'idle',
@@ -174,6 +181,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   noiseCancellationMode: null,
   ambience: null,
   personalMusic: null,
+  nearbyCat: null,
 
   chat: [],
   unreadChat: 0,
@@ -222,7 +230,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   patchPlayerState: ({ userId, status, seatId, voice }) =>
     set((state) => {
       if (state.self?.userId === userId) {
-        return { self: { ...state.self, status, seatId, voice } };
+        // Leaving "Cần tập trung", or the seat, ends the listener's own music.
+        const keep = status === 'focus' && Boolean(seatId);
+        return { self: { ...state.self, status, seatId, voice }, ...(keep ? {} : { personalMusic: null }) };
       }
       const existing = state.players[userId];
       if (!existing) return {};
@@ -251,9 +261,9 @@ export const useCafeStore = create<CafeState>((set, get) => ({
   setMic: (micOn, micError = null) => set({ micOn, micError }),
   setNoiseCancellationMode: (noiseCancellationMode) => set({ noiseCancellationMode }),
   setAmbience: (ambience) => set({ ambience }),
-  // Personal music only exists inside Focus Mode.
-  setPersonalMusic: (personalMusic) =>
-    set((state) => ({ personalMusic: state.audio.focusMode ? personalMusic : null })),
+  // Personal music belongs to the "Cần tập trung" status (see useCafe).
+  setPersonalMusic: (personalMusic) => set({ personalMusic }),
+  setNearbyCat: (nearbyCat) => set((state) => (state.nearbyCat === nearbyCat ? {} : { nearbyCat })),
 
   pushChat: (message) =>
     set((state) => ({
@@ -267,8 +277,7 @@ export const useCafeStore = create<CafeState>((set, get) => ({
     set((state) => {
       const audio = { ...state.audio, ...patch };
       writeLocal(STORAGE_KEYS.audio, audio);
-      // Leaving Focus Mode ends the listener's own music.
-      return audio.focusMode ? { audio } : { audio, personalMusic: null };
+      return { audio };
     }),
 
   setAudioStarted: (audioStarted) => set({ audioStarted }),

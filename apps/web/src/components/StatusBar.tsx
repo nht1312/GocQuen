@@ -9,6 +9,7 @@ import {
   tableLabel,
 } from '@virtual-cafe/shared';
 import { useCafeStore } from '@/state/useCafeStore';
+import { FocusMusicDialog } from './FocusMusic';
 
 interface Props {
   onStatusChange: (status: PlayerStatus) => void;
@@ -27,6 +28,8 @@ interface Props {
  */
 export function StatusBar({ onStatusChange, onStand, onLeave, onOpenHelp }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const music = useCafeStore((state) => state.personalMusic);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const self = useCafeStore((state) => state.self);
   const preset = AVATAR_PRESETS.find((item) => item.id === self?.avatar.presetId) ?? AVATAR_PRESETS[0];
@@ -90,8 +93,13 @@ export function StatusBar({ onStatusChange, onStand, onLeave, onOpenHelp }: Prop
         <span className="sr-only">Trạng thái của bạn</span>
         <select
           value={self?.status ?? 'available'}
-          onChange={(event) => onStatusChange(event.target.value as PlayerStatus)}
-          disabled={self?.status === 'in_conversation'}
+          onChange={(event) => {
+            const next = event.target.value as PlayerStatus;
+            onStatusChange(next);
+            if (next === 'focus') setFocusOpen(true);
+          }}
+          disabled={!self?.seatId || self?.status === 'in_conversation'}
+          title={self?.seatId ? undefined : 'Hãy ngồi vào một bàn để chọn chế độ'}
           className="min-h-10 max-w-[7.5rem] rounded-lg border border-white/15 bg-charcoal px-2 py-1.5 text-xs text-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel disabled:opacity-60 sm:min-h-0 sm:max-w-none sm:py-1"
         >
           {self?.status === 'in_conversation' ? (
@@ -104,6 +112,18 @@ export function StatusBar({ onStatusChange, onStand, onLeave, onOpenHelp }: Prop
           ))}
         </select>
       </label>
+
+      {self?.status === 'focus' && self?.seatId ? (
+        <button
+          type="button"
+          onClick={() => setFocusOpen(true)}
+          title={music ? `Đang phát: ${music.label}` : 'Chọn nhạc cho chế độ tập trung'}
+          className="shrink-0 rounded-lg border border-caramel/50 bg-caramel/15 px-2 py-1 text-xs text-cream hover:bg-caramel/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+        >
+          {music ? '♪ Đang phát' : '♪ Nhạc'}
+        </button>
+      ) : null}
+      {focusOpen ? <FocusMusicDialog onClose={() => setFocusOpen(false)} /> : null}
 
       <div className="hidden items-center gap-2 sm:flex">{actions}</div>
 

@@ -36,11 +36,29 @@ const SEAT_STEPS = {
   },
 };
 
+const TABLE_STEPS = {
+  keyboard: {
+    title: 'Tiện ích tại bàn',
+    body: 'Khi đã ngồi, rê chuột lên bàn của bạn để hiện 2 biểu tượng: 💬 mở khung trò chuyện ở giữa màn hình, 🖥 mở chia sẻ màn hình. Tin nhắn và màn hình chỉ những người cùng bàn mới thấy.',
+    hint: 'Rê chuột lên bàn',
+  },
+  touch: {
+    title: 'Tiện ích tại bàn',
+    body: 'Khi đã ngồi, chạm vào bàn của bạn để hiện 2 biểu tượng: 💬 mở khung trò chuyện ở giữa màn hình, 🖥 mở chia sẻ màn hình. Tin nhắn và màn hình chỉ những người cùng bàn mới thấy.',
+    hint: 'Chạm vào bàn',
+  },
+};
+
 const REST_STEPS = [
   {
-    title: 'Cho mọi người biết bạn đang bận thế nào',
-    body: 'Chọn “Đang làm việc” hoặc “Cần tập trung” trên thanh trạng thái để những người xung quanh biết có nên làm phiền bạn hay không.',
-    hint: 'Trạng thái',
+    title: 'Chọn chế độ khi đã ngồi',
+    body: 'Chỉ khi ngồi vào bàn bạn mới chọn được chế độ trên thanh trạng thái: Đang rảnh, Đang làm việc, Cần tập trung hoặc Đang vắng mặt. Đứng dậy sẽ tự quay về “Đang rảnh”.',
+    hint: 'Thanh trạng thái',
+  },
+  {
+    title: 'Cần tập trung',
+    body: 'Chọn “Cần tập trung” để quán yên hơn và ẩn bớt thông báo. Một hộp hiện ra để bạn dán link nhạc riêng (YouTube, SoundCloud hoặc .mp3) — chỉ mình bạn nghe. Nút ♪ Nhạc mở lại hộp này; đổi chế độ hoặc đứng dậy là nhạc dừng.',
+    hint: '♪ Nhạc',
   },
   {
     title: 'Trò chuyện với bàn của bạn',
@@ -48,9 +66,24 @@ const REST_STEPS = [
     hint: 'Micro mặc định tắt',
   },
   {
-    title: 'Phối lại âm thanh trong quán',
-    body: 'Nhạc, tiếng quán, tiếng mưa và giọng nói đều có thanh âm lượng riêng. Chế độ tập trung làm căn phòng yên hơn mà không thay đổi ai nghe được bạn.',
-    hint: 'Bảng âm thanh',
+    title: 'Bảng điều khiển',
+    body: 'Mở “Hiện bảng điều khiển” ở góc phải để chuyển giữa các mục Âm thanh, Màn hình, Mọi người và Trò chuyện. Âm thanh có thanh chỉnh riêng cho nhạc, tiếng quán, tiếng mưa và giọng nói, cùng lọc tiếng ồn micro.',
+    hint: 'Âm thanh · Màn hình · Mọi người · Trò chuyện',
+  },
+  {
+    title: 'Quán theo giờ và thời tiết thật',
+    body: 'Bầu trời ngoài cửa sổ đổi theo giờ và thời tiết thật của quán: nắng, mây, mưa, giông. Từ 18:00 đến 06:00 đèn trong quán tự bật. Dòng “Ngoài trời…” trong mục Âm thanh cho biết thời tiết lúc này.',
+    hint: 'Cửa sổ · Đèn 18:00–06:00',
+  },
+  {
+    title: 'Khu Chơi Game',
+    body: 'Đi tới biển neon “KHU CHƠI GAME” ở góc trên bên phải. Khi đứng trước biển, chọn “Vào Khu Chơi Game” để sang khu riêng. Khu đang được xây dựng, bạn sẽ được đưa về quán sau vài giây.',
+    hint: 'Biển neon góc phải',
+  },
+  {
+    title: 'Những chú mèo của quán',
+    body: 'Có 2 chú mèo ngủ ở góc quầy và khu thư giãn, và một chú mèo xám hay chạy nhảy quanh quán. Đi lại gần một chú mèo rồi nhấn F (trên điện thoại: chạm vào nút hiện ra) — mèo ngủ thì được vuốt ve, mèo xám thì được ôm và kêu meo meo.',
+    hint: 'Lại gần mèo · phím F',
   },
 ];
 
@@ -60,7 +93,7 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
   const [dontShow, setDontShow] = useState(true);
   const touch = useMediaQuery(TOUCH_QUERY);
   const kind = touch ? 'touch' : 'keyboard';
-  const steps = [MOVE_STEPS[kind], SEAT_STEPS[kind], ...REST_STEPS];
+  const steps = [MOVE_STEPS[kind], SEAT_STEPS[kind], TABLE_STEPS[kind], ...REST_STEPS];
   const current = steps[step];
   const isLast = step === steps.length - 1;
 
@@ -88,6 +121,24 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
           {current.hint}
         </p>
 
+        {/* Jump straight to any step — handy when this is opened from Trợ giúp. */}
+        <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Các bước hướng dẫn">
+          {steps.map((item, index) => (
+            <button
+              key={item.title}
+              type="button"
+              role="tab"
+              aria-selected={index === step}
+              aria-label={`Bước ${index + 1}: ${item.title}`}
+              title={item.title}
+              onClick={() => setStep(index)}
+              className={`h-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel ${
+                index === step ? 'w-5 bg-caramel' : 'w-2 bg-white/25 hover:bg-white/45'
+              }`}
+            />
+          ))}
+        </div>
+
         <div className="mt-5 flex items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-[11px] text-linen/70">
             <input
@@ -99,6 +150,15 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
             Không hiện lại
           </label>
           <div className="flex gap-2">
+            {step > 0 ? (
+              <button
+                type="button"
+                onClick={() => setStep((value) => value - 1)}
+                className="min-h-11 rounded-lg border border-white/15 px-4 py-1.5 text-xs text-linen hover:border-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel md:min-h-0 md:px-3"
+              >
+                Quay lại
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={finish}

@@ -116,8 +116,8 @@ interface TableSpec {
  *  12 #..~=====.......cc..cc...#
  *  13 #P.~LFFF~................#   Khu thư giãn: planter, sofa, lamp
  *  14 #..~~SSS~a...............#
- *  15 #..~~~~~~k......T...T....#
- *  16 #D*~~kkk~a..cT..c...c....#   Lối vào
+ *  15 #..~~kkk~k......T...T....#   sofa → coffee table, no gap
+ *  16 #D*~~~~~~a..cT..c...c....#   Lối vào
  *  18 #.........=====..........#   planter
  *
  * Seat group ids are unchanged (tests and tools rely on them). Khu Chơi Game
@@ -252,7 +252,7 @@ const PROPS: MapObject[] = [
   // Khu thư giãn: a planter box screens the lounge from the room.
   { id: 'planter_lounge', kind: 'planter', x: 4, y: 12, w: 5, h: 1, solid: true },
   { id: 'floor_lamp', kind: 'floor_lamp', x: 4, y: 13, w: 1, h: 1, solid: true },
-  { id: 'lounge_coffee', kind: 'coffee_table', x: 5, y: 16, w: 3, h: 1, solid: true },
+  { id: 'lounge_coffee', kind: 'coffee_table', x: 5, y: 15, w: 3, h: 1, solid: true },
   { id: 'rug_lounge', kind: 'rug', x: 3, y: 12, w: 6, h: 6, solid: false, layer: -1 },
   { id: 'plant_nook', kind: 'plant_large', x: 1, y: 13, w: 1, h: 1, solid: true },
   { id: 'plant_solo', kind: 'plant_small', x: 24, y: 9, w: 1, h: 1, solid: true },

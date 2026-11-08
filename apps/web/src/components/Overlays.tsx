@@ -95,7 +95,7 @@ function Key({ children }: { children: React.ReactNode }) {
 export function Toasts() {
   const toast = useCafeStore((state) => state.toast);
   const dismiss = useCafeStore((state) => state.dismissToast);
-  const focusMode = useCafeStore((state) => state.audio.focusMode);
+  const focusMode = useCafeStore((state) => state.self?.status === 'focus' && Boolean(state.self?.seatId));
 
   useEffect(() => {
     if (!toast) return;

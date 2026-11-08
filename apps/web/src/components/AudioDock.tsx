@@ -5,7 +5,6 @@ import { tableLabel } from '@virtual-cafe/shared';
 import { useCafeStore } from '@/state/useCafeStore';
 import { IconButton, Panel, Slider, Toggle } from './ui';
 import { PHASE_LABELS, WEATHER_LABELS } from '@/world/ambience';
-import { FocusMusicRequest } from './FocusMusic';
 
 interface Props {
   onToggleMic: () => void;
@@ -128,13 +127,6 @@ export function AudioDock({ onToggleMic, onJoinVoice, onLeaveVoice, onEnableAudi
           <Slider label="Giọng nói" value={audio.voice} onChange={(voice) => update({ voice })} disabled={audio.muteAll} />
 
           <div className="space-y-2 border-t border-white/10 pt-3">
-            <Toggle
-              label="Chế độ tập trung"
-              description="Làm căn phòng yên hơn và ẩn thông báo. Không thay đổi ai nghe được bạn."
-              checked={audio.focusMode}
-              onChange={(focusMode) => update({ focusMode })}
-            />
-            {audio.focusMode ? <FocusMusicRequest /> : null}
             <Toggle
               label="Lọc tiếng ồn micro"
               description={
