@@ -27,44 +27,12 @@ interface NpcSpec {
 const NPC_SPECS: NpcSpec[] = [
   {
     npcId: 'npc_barista',
-    displayName: 'Nhân viên pha chế',
+    displayName: 'Nhân Viên',
     presetId: 'cocoa',
     activity: 'barista',
     x: 1.5,
     y: 6.5,
     direction: 'south_east',
-  },
-  {
-    npcId: 'npc_reader',
-    displayName: 'Khách quen đọc sách',
-    presetId: 'cream',
-    activity: 'reading',
-    seatId: 'reading_nook:1',
-  },
-  {
-    npcId: 'npc_laptop',
-    displayName: 'Khách quen dùng laptop',
-    presetId: 'slate',
-    activity: 'laptop',
-    seatId: 'window_nook:1',
-  },
-  {
-    npcId: 'npc_chat_a',
-    displayName: 'Khách quen',
-    presetId: 'rose',
-    activity: 'chatting',
-    x: 15.6,
-    y: 8.6,
-    direction: 'south',
-  },
-  {
-    npcId: 'npc_chat_b',
-    displayName: 'Khách quen',
-    presetId: 'sage',
-    activity: 'chatting',
-    x: 16.4,
-    y: 9.4,
-    direction: 'north',
   },
 ];
 

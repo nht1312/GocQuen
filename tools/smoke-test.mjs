@@ -144,7 +144,7 @@ async function main() {
 
   check('both guests land in the same instance', alice.snapshot.instanceId === bob.snapshot.instanceId,
     alice.snapshot.instanceId.slice(0, 8));
-  check('snapshot carries the café population', alice.snapshot.npcs.length === 5 && alice.snapshot.seats.length === 31,
+  check('snapshot carries the café population', alice.snapshot.npcs.length === 1 && alice.snapshot.seats.length === 31,
     `npcs=${alice.snapshot.npcs.length} seats=${alice.snapshot.seats.length}`);
 
   // --- movement authority -------------------------------------------------

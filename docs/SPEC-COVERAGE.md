@@ -28,8 +28,7 @@ to the spec.
 | FR-019 | Pomodoro | P2 | Not started | |
 | FR-020 | Order counter | P2 | Not started | |
 | FR-021 | Music requests | P2 | Not started | |
-| EXT-3D | Low-poly 3D renderer (opt-in) | Extension | Done, pending visual QA | `three/*`, flag `NEXT_PUBLIC_RENDERER=3d`, 2D fallback without WebGL |
-| EXT-LAMP | Lamps 18:00–06:00 | Extension | Done | `world/ambience.ts` (`lightsOn`), 2D `drawEvening`, 3D `Atmosphere.tsx` |
+| EXT-LAMP | Lamps 18:00–06:00 | Extension | Done | `world/ambience.ts` (`lightsOn`), 2D `drawEvening` |
 | EXT-FM | Focus Mode personal music | Extension | Done | `audio/personalMusic.ts`, `components/FocusMusic.tsx` — client-only, never sent to the server |
 | EXT-WX | Live time and weather | Extension | Done | `world/ambience.ts` (Open-Meteo), `renderer.ts` (`drawEvening`, window sky), `audio/engine.ts` (`setWeatherIntensity`) |
 | EXT-NC | Microphone noise cancellation | Extension | Done | `voice/voiceClient.ts` (`applyNoiseCancellation`), toggle in `AudioDock.tsx` |
@@ -96,6 +95,5 @@ Every item below is covered by an automated check.
 | Noise cancellation | Krisp in the browser (`@livekit/krisp-noise-filter`), optional dependency, falls back to WebRTC suppression | Yes — the switch is in `AudioSettings` and the processor is set in one place |
 | Background music source | Recorded loop `public/audio/bgm.mp3` when present, generative music otherwise; track licence must be cleared before public deploy (SPEC 15.4) | Yes — delete the file to return to synthesised music |
 | Live weather source | Open-Meteo, no key, fixed café location from env; falls back to the rainy-afternoon scene; attribution required (CC BY 4.0) | Yes — `NEXT_PUBLIC_LIVE_WEATHER=0` |
-| 3D renderer | React Three Fiber + three.js, orthographic isometric camera, opt-in behind a build flag; Canvas2D stays the default and the WebGL fallback | Yes — unset `NEXT_PUBLIC_RENDERER` |
 | Weather in the MVP | Rain on the window is in, as its own audio and visual layer | Yes |
 | Profile retention | Guests persist only a display name and avatar preset | Yes |

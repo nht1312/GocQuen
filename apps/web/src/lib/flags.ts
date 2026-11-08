@@ -17,17 +17,3 @@
  * presenting, and nothing can be opened by a stray click.
  */
 export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === '1';
-
-/**
- * Which renderer draws the café: `3d` = React Three Fiber (stylised low-poly,
- * isometric camera), anything else = the original Canvas2D renderer. The 2D
- * one stays the default until the 3D scene reaches feature parity.
- */
-export const RENDERER_3D = process.env.NEXT_PUBLIC_RENDERER === '3d';
-
-/**
- * 3D renderer only: use the Kenney Furniture Kit models in
- * /public/models/kenney instead of the built-in low-poly shapes. On by
- * default; `NEXT_PUBLIC_3D_MODELS=0` keeps the procedural furniture.
- */
-export const USE_MODELS = process.env.NEXT_PUBLIC_3D_MODELS !== '0';

@@ -12,16 +12,10 @@ import {
 import { readFlag, readLocal } from "@/lib/storage";
 import { useCafeStore } from "@/state/useCafeStore";
 import { AudioDock } from "./AudioDock";
-import dynamic from "next/dynamic";
 import { CafeCanvas } from "./CafeCanvas";
-import { RENDERER_3D } from "@/lib/flags";
 import { GAMING_ROUTE } from "@/game/gamingEntry";
 import { GamingPrompt } from "./GamingPrompt";
-import { webglAvailable } from "@/three/quality";
 
-// Loaded only when the 3D renderer is selected, and only in the browser:
-// three.js stays out of the landing page and out of the 2D build's bundle.
-const CafeScene3D = dynamic(() => import("@/three/CafeScene3D"), { ssr: false });
 import { ChatPanel } from "./ChatPanel";
 import { DonationPrompt } from "./DonationPrompt";
 import { DockTab, MobileDock } from "./MobileDock";
@@ -71,12 +65,6 @@ export function CafeShell() {
   const seated = Boolean(useCafeStore((state) => state.self?.seatId));
   const screenFocused = useCafeStore((state) => state.screenShareFocus.focused);
   const compact = useMediaQuery(COMPACT_QUERY);
-  // 3D only when selected *and* the browser can do WebGL; otherwise the 2D
-  // café, so nobody is left looking at a blank screen.
-  const [use3D, setUse3D] = useState(false);
-  useEffect(() => {
-    setUse3D(RENDERER_3D && webglAvailable());
-  }, []);
   const touch = useMediaQuery(TOUCH_QUERY);
 
   useEffect(() => {
@@ -191,16 +179,6 @@ export function CafeShell() {
 
   return (
     <main className="relative h-dvh w-full overflow-hidden overscroll-none bg-charcoal">
-      {use3D ? (
-        <CafeScene3D
-          engineRef={controls.engineRef}
-          touchVectorRef={touchVectorRef}
-          onSit={controls.sit}
-          onStand={controls.stand}
-          onInteract={interact}
-          onOwnTableHover={seated && !screenFocused ? onOwnTableHover : undefined}
-        />
-      ) : (
       <CafeCanvas
         engineRef={controls.engineRef}
         touchVectorRef={touchVectorRef}
@@ -209,7 +187,6 @@ export function CafeShell() {
         onInteract={interact}
         onOwnTableHover={seated && !screenFocused ? onOwnTableHover : undefined}
       />
-      )}
 
       {tableAnchor && seated && !screenFocused && !chatModal ? (
         <TableActions

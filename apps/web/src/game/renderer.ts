@@ -22,7 +22,15 @@ import type { SkyName } from '@/world/skybox';
 /** The window wall is split into this many large panes. */
 const WINDOW_PANES = 4;
 
-/** Name painted on the north-wall sign. */
+/** What the chalkboard over the counter offers. */
+const MENU_ITEMS: Array<[string, string]> = [
+  ['Cà phê', '45K'],
+  ['Trà', '40K'],
+  ['Matcha', '55K'],
+  ['Bánh ngọt', '35K'],
+];
+
+/** Name painted on the sign over the order counter. */
 const SIGN_TEXT = 'GÓC QUEN';
 
 export interface SceneInput {
@@ -551,19 +559,65 @@ export class CafeRenderer {
       ctx.fill();
     };
 
-    if (kind === 'menu_board') {
-      panel(112, 66, PALETTE.espresso);
+    // The west wall recedes to the lower left, so text follows it the other
+    // way round or the lettering comes out upside down.
+    const wallText = (lift: number, draw: (width: number) => void) => {
       ctx.save();
-      ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2 - 90);
-      // The west wall recedes to the lower left, so follow it the other way
-      // round or the lettering comes out upside down.
+      ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2 - lift);
       ctx.rotate(Math.atan2(a.y - b.y, a.x - b.x));
-      ctx.fillStyle = PALETTE.linen;
-      ctx.font = '500 9px ui-sans-serif, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('ESPRESSO · FILTER · CORTADO', 0, -6);
-      ctx.fillText('PASTRY OF THE DAY', 0, 7);
+      draw(Math.hypot(b.x - a.x, b.y - a.y));
       ctx.restore();
+    };
+
+    if (kind === 'sign') {
+      // Góc Quen, warm-lit, on a walnut board above the order counter.
+      panel(126, 96, PALETTE.walnutSide);
+      panel(124, 98, PALETTE.espresso);
+      wallText(111, (width) => {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let size = 17;
+        do {
+          ctx.font = `700 ${size}px ui-sans-serif, system-ui, sans-serif`;
+          size -= 1;
+        } while (size > 8 && ctx.measureText(SIGN_TEXT).width > width - 16);
+        ctx.shadowColor = 'rgba(255, 196, 120, 0.8)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = PALETTE.accent;
+        ctx.fillText(SIGN_TEXT, 0, 0);
+      });
+      return;
+    }
+
+    if (kind === 'menu_board') {
+      // Chalkboard menu: title, then item and price in two columns.
+      panel(124, 54, PALETTE.walnutSide);
+      panel(122, 56, '#2a2622');
+      wallText(89, (width) => {
+        const left = -width / 2 + 12;
+        const right = width / 2 - 12;
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = PALETTE.cream;
+        ctx.font = '700 10px ui-sans-serif, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('MENU', 0, -25);
+        ctx.strokeStyle = 'rgba(232, 220, 202, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, -17);
+        ctx.lineTo(right, -17);
+        ctx.stroke();
+        ctx.font = '500 8.5px ui-sans-serif, system-ui, sans-serif';
+        MENU_ITEMS.forEach(([item, price], i) => {
+          const y = -7 + i * 11;
+          ctx.fillStyle = PALETTE.linen;
+          ctx.textAlign = 'left';
+          ctx.fillText(item, left, y);
+          ctx.fillStyle = PALETTE.accent;
+          ctx.textAlign = 'right';
+          ctx.fillText(price, right, y);
+        });
+      });
       return;
     }
     if (kind === 'clock') {

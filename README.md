@@ -538,36 +538,6 @@ the player changes status, or on **Dừng**. Direct audio follows the Nhạc /
 Tổng / Tắt tất cả controls; YouTube and SoundCloud embeds keep their own
 volume. Code: `audio/personalMusic.ts`, `components/FocusMusic.tsx`.
 
-### 3D renderer (React Three Fiber)
-
-A stylised low-poly version of the café, drawn with three.js through
-React Three Fiber and an orthographic isometric camera. It is **opt-in** while
-it settles:
-
-```bash
-NEXT_PUBLIC_RENDERER=3d   # unset = the Canvas2D renderer
-```
-
-Only drawing changes. The same `CafeEngine` runs movement, collision, seats,
-sockets and voice; the scene reads `engine.sceneInput()` every frame.
-
-| Part | Where |
-| --- | --- |
-| Camera, avatars, click-to-sit, own-table hover, quality guard | `three/CafeScene3D.tsx` |
-| Floor, walls, 4-pane window, sign, furniture, seats | `three/Room.tsx` |
-| Time of day, lamps, live-weather street view, rain, lightning | `three/Atmosphere.tsx` |
-| Name plates (HTML, constant size on screen) | `three/NamePlates.tsx` |
-| Quality tiers, WebGL detection | `three/quality.ts` |
-
-- **Quality.** `high` on laptops (dpr ≤ 2, shadows, every lamp a light);
-  `low` on phones, touch-only, small screens or ≤ 4 GB / ≤ 4 cores (dpr ≤ 1.25,
-  no shadows, 4 lamp lights, less rain). A sustained frame rate under 30 fps
-  steps down to `low` once.
-- **Fallback.** Without WebGL the 2D renderer is used even with the flag set.
-- **Bundle.** three.js loads only on `/cafe` and only when 3D is selected.
-- **Checks.** `npm run visual` / `visual:mobile` launch Chrome with
-  SwiftShader so the 3D scene renders headless.
-
 ### Rendering
 
 A hand-written Canvas2D isometric renderer rather than a game engine, because

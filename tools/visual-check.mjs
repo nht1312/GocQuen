@@ -146,9 +146,6 @@ async function main() {
     [
       '--headless=new',
       '--disable-gpu',
-    // Software WebGL, so the 3D café (NEXT_PUBLIC_RENDERER=3d) renders headless.
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
       '--hide-scrollbars',
       '--no-first-run',
       '--mute-audio',
