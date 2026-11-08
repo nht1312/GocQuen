@@ -127,7 +127,7 @@ function Floor() {
           map={oak.map}
           normalMap={oak.normal}
           normalScale={new THREE.Vector2(0.6, 0.6)}
-          color="#e0b48a"
+          color="#f2cfa6"
           roughness={0.7}
           metalness={0}
         />

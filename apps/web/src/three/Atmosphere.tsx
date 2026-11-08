@@ -291,7 +291,7 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
     light.target.updateMatrixWorld();
   }, []);
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock, gl }, delta) => {
     const state = useCafeStore.getState();
     const sky = skyOf(state.ambience);
     const reduced = state.audio.reducedMotion;
@@ -305,18 +305,21 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
     if (hemi.current) {
       // The room never goes dark: after sunset the fill light stays bright
       // and turns warm amber, so the café reads as cosy rather than night-blue.
-      hemi.current.intensity = 1.0 + 0.9 * night + (storm ? 0.8 : 0);
-      hemi.current.color.set(mix('#fff1dc', '#ffc890', night));
+      // Day is the brightest time in the café: a bright, slightly warm fill
+      // light, easing to the warm amber evening level after sunset.
+      hemi.current.intensity = 1.8 + 0.1 * night + (storm ? 0.8 : 0);
+      hemi.current.color.set(mix('#fff6ea', '#ffc890', night));
       hemi.current.groundColor.set(mix('#6b4f3a', '#7a4a2a', night));
     }
     if (sun.current) {
       // By day this is the sun; after dark it becomes the café's own warm
       // ceiling light, so the room stays bright and amber at night.
-      const daySun = 1.6 * sky.daylight * (1 - sky.cloud * 0.5);
+      // Cloud softens the sun but never turns the room grey by day.
+      const daySun = 2.4 * sky.daylight * (1 - sky.cloud * 0.25);
       const roomLight = 1.3 * night;
       sun.current.intensity = Math.max(daySun, roomLight);
       sun.current.color.set(
-        daySun >= roomLight ? mix('#ffe2b8', '#ff9a5a', twilight * 0.7) : '#ffcf9a',
+        daySun >= roomLight ? mix('#fff0d6', '#ff9a5a', twilight * 0.7) : '#ffcf9a',
       );
       sun.current.castShadow = quality.shadows && sun.current.intensity > 0.15;
     }
@@ -333,6 +336,8 @@ export function Atmosphere({ quality }: { quality: QualitySettings }) {
     });
     bulb.emissiveIntensity = 0.3 + 1.4 * lamps;
     shadeMat.emissiveIntensity = 0.15 + 0.8 * lamps;
+    // Exposure: lift the whole image by day, back to neutral at night.
+    gl.toneMappingExposure = 1 + 0.25 * sky.daylight;
     if (flash.current) {
       (flash.current.material as THREE.MeshBasicMaterial).opacity = storm ? 0.6 : 0;
       flash.current.visible = storm;

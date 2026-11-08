@@ -679,7 +679,7 @@ export class CafeRenderer {
     const lamps = this.lampLevel;
     // Evening is warm, not dark: a light amber wash keeps the room readable,
     // and the lamps only add small pools of light where people sit.
-    const dim = (night * 0.2 + this.sky.cloud * 0.05 * this.sky.daylight) * (1 - lamps * 0.4);
+    const dim = night * 0.2 * (1 - lamps * 0.4);
     if (dim < 0.01 && lamps < 0.01) return;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
