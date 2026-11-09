@@ -4,7 +4,7 @@ import type { WorldAmbience } from './ambience';
 
 /**
  * The sky seen through the café window, from the panoramas in
- * /public/skyboxes. Chosen by the café's clock (morning at dawn and dusk,
+ * /public/Skyboxes. Chosen by the café's clock (morning at dawn and dusk,
  * day, night) and crossfaded when it changes. Live weather — cloud, rain,
  * haze, lightning — is still painted on top by each renderer.
  *
@@ -13,11 +13,11 @@ import type { WorldAmbience } from './ambience';
 export type SkyName = 'morning' | 'day' | 'night' | 'space' | 'alien';
 
 const SRC: Record<SkyName, string> = {
-  morning: '/skyboxes/skybox-morning.png',
-  day: '/skyboxes/skybox-day.png',
-  night: '/skyboxes/skybox-night.png',
-  space: '/skyboxes/skybox-space.png',
-  alien: '/skyboxes/skybox-alien.png',
+  morning: '/Skyboxes/skybox-morning.png',
+  day: '/Skyboxes/skybox-day.png',
+  night: '/Skyboxes/skybox-night.png',
+  space: '/Skyboxes/skybox-space.png',
+  alien: '/Skyboxes/skybox-alien.png',
 };
 
 const THEME = process.env.NEXT_PUBLIC_SKYBOX_THEME;
