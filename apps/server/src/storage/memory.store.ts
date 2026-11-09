@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { AudioSettings, AvatarConfig } from '@virtual-cafe/shared';
-import { ModerationReportRecord, ScreenShareSessionRecord, Store, UserRecord } from './store';
+import {
+  GameRecord,
+  GameUpsert,
+  ModerationReportRecord,
+  ScreenShareSessionRecord,
+  Store,
+  StoredFile,
+  UserRecord,
+} from './store';
 
 /** Default store for development and prototypes. Everything is lost on restart. */
 @Injectable()
@@ -11,6 +19,7 @@ export class MemoryStore extends Store {
   private readonly reports = new Map<string, ModerationReportRecord>();
   private readonly blocks = new Map<string, Set<string>>();
   private readonly screenShares = new Map<string, ScreenShareSessionRecord>();
+  private readonly games = new Map<string, { record: GameRecord; banner: StoredFile; rom: StoredFile }>();
 
   async init(): Promise<void> {
     /* nothing to migrate */
@@ -111,5 +120,28 @@ export class MemoryStore extends Store {
 
   async findScreenShareSession(id: string): Promise<ScreenShareSessionRecord | null> {
     return this.screenShares.get(id) ?? null;
+  }
+
+  async listGames(): Promise<GameRecord[]> {
+    return [...this.games.values()]
+      .map((game) => game.record)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  }
+
+  async getGameBanner(id: string): Promise<StoredFile | null> {
+    return this.games.get(id)?.banner ?? null;
+  }
+
+  async getGameRom(id: string): Promise<StoredFile | null> {
+    return this.games.get(id)?.rom ?? null;
+  }
+
+  async upsertGame(game: GameUpsert): Promise<void> {
+    const updatedAt = Date.now();
+    this.games.set(game.id, {
+      record: { id: game.id, title: game.title, hint: game.hint, sortOrder: game.sortOrder, updatedAt },
+      banner: { data: game.banner.data, contentType: game.banner.contentType, updatedAt },
+      rom: { data: game.rom, contentType: 'application/octet-stream', updatedAt },
+    });
   }
 }

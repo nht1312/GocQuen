@@ -77,7 +77,7 @@ const REST_STEPS = [
   },
   {
     title: 'Khu Chơi Game',
-    body: 'Đi tới biển neon “KHU CHƠI GAME” ở góc trên bên phải. Khi đứng trước biển, chọn “Vào Khu Chơi Game” để sang khu riêng. Khu đang được xây dựng, bạn sẽ được đưa về quán sau vài giây.',
+    body: 'Đi tới biển neon “KHU CHƠI GAME” ở góc trên bên phải. Khi đứng trước biển, chọn “Vào Khu Chơi Game” để sang khu riêng. Chọn một game (Super Mario, Contra, Tetris) để chơi ngay trên trình duyệt, rồi bấm “Quay lại quán” để trở về.',
     hint: 'Biển neon góc phải',
   },
   {

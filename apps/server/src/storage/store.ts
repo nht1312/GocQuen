@@ -44,6 +44,31 @@ export interface ScreenShareSessionRecord {
   endReason: string | null;
 }
 
+/** A game's metadata, without its files. */
+export interface GameRecord {
+  id: string;
+  title: string;
+  hint: string;
+  sortOrder: number;
+  updatedAt: number;
+}
+
+/** A stored file (banner image or ROM). */
+export interface StoredFile {
+  data: Buffer;
+  contentType: string;
+  updatedAt: number;
+}
+
+export interface GameUpsert {
+  id: string;
+  title: string;
+  hint: string;
+  sortOrder: number;
+  banner: { data: Buffer; contentType: string };
+  rom: Buffer;
+}
+
 export abstract class Store {
   abstract init(): Promise<void>;
   abstract createGuestUser(displayName: string, avatar: AvatarConfig): Promise<UserRecord>;
@@ -82,4 +107,10 @@ export abstract class Store {
     endedAt: number,
   ): Promise<void>;
   abstract findScreenShareSession(id: string): Promise<ScreenShareSessionRecord | null>;
+
+  /** Khu Chơi Game library: games and their files live in the database. */
+  abstract listGames(): Promise<GameRecord[]>;
+  abstract getGameBanner(id: string): Promise<StoredFile | null>;
+  abstract getGameRom(id: string): Promise<StoredFile | null>;
+  abstract upsertGame(game: GameUpsert): Promise<void>;
 }

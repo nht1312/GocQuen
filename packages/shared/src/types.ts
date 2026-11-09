@@ -177,3 +177,15 @@ export const MODERATION_REASON_LABELS: Record<ModerationReason, string> = {
   inappropriate_audio: 'Âm thanh không phù hợp',
   other: 'Lý do khác',
 };
+
+/** A game in Khu Chơi Game, as listed by GET /games. Files are served separately. */
+export interface GameSummary {
+  id: string;
+  title: string;
+  /** Short controls hint. */
+  hint: string;
+  /** Server-relative URL of the banner image (cache-busted by version). */
+  bannerUrl: string;
+  /** Server-relative URL of the .nes file (needs a guest session). */
+  romUrl: string;
+}

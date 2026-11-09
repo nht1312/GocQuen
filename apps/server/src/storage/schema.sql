@@ -122,3 +122,17 @@ CREATE INDEX IF NOT EXISTS screen_share_sessions_publisher_idx
 
 CREATE INDEX IF NOT EXISTS screen_share_sessions_instance_idx
   ON screen_share_sessions (instance_id, status);
+
+-- Khu Chơi Game library. The banner image and the .nes file are stored in
+-- the row itself (both are small: banners < 1 MB, NES ROMs < 2 MB).
+CREATE TABLE IF NOT EXISTS games (
+  id          TEXT PRIMARY KEY,
+  title       TEXT        NOT NULL,
+  hint        TEXT        NOT NULL DEFAULT '',
+  sort_order  INTEGER     NOT NULL DEFAULT 0,
+  banner      BYTEA       NOT NULL,
+  banner_type TEXT        NOT NULL,
+  rom         BYTEA       NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

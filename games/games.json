@@ -1,0 +1,28 @@
+{
+  "games": [
+    {
+      "id": "super-mario",
+      "title": "Super Mario Bros.",
+      "banner": "banners/super-mario.jpg",
+      "rom": "roms/super-mario.nes",
+      "sortOrder": 1,
+      "hint": "Mũi tên: di chuyển · X: nhảy · Z: chạy · Enter: bắt đầu"
+    },
+    {
+      "id": "contra",
+      "title": "Contra",
+      "banner": "banners/contra.jpg",
+      "rom": "roms/contra.nes",
+      "sortOrder": 2,
+      "hint": "Mũi tên: di chuyển · X: nhảy · Z: bắn · Enter: bắt đầu"
+    },
+    {
+      "id": "tetris",
+      "title": "Tetris",
+      "banner": "banners/tetris.jpg",
+      "rom": "roms/tetris.nes",
+      "sortOrder": 3,
+      "hint": "Mũi tên: di chuyển · X / Z: xoay · Enter: bắt đầu"
+    }
+  ]
+}

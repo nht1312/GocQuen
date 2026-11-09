@@ -9,7 +9,15 @@ import {
   SEAT_DEFINITIONS,
 } from '@virtual-cafe/shared';
 import { AppConfig } from '../config/app-config';
-import { ModerationReportRecord, ScreenShareSessionRecord, Store, UserRecord } from './store';
+import {
+  GameRecord,
+  GameUpsert,
+  ModerationReportRecord,
+  ScreenShareSessionRecord,
+  Store,
+  StoredFile,
+  UserRecord,
+} from './store';
 
 type QueryResult<T> = { rows: T[] };
 interface PgPoolOptions {
@@ -307,5 +315,56 @@ export class PostgresStore extends Store {
       endedAt: row.ended_at ? row.ended_at.getTime() : null,
       endReason: row.end_reason,
     };
+  }
+
+  async listGames(): Promise<GameRecord[]> {
+    const result = await this.pool.query<{
+      id: string;
+      title: string;
+      hint: string;
+      sort_order: number;
+      updated_at: Date;
+    }>(`SELECT id, title, hint, sort_order, updated_at FROM games ORDER BY sort_order, title`);
+    return result.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      hint: row.hint,
+      sortOrder: row.sort_order,
+      updatedAt: row.updated_at.getTime(),
+    }));
+  }
+
+  async getGameBanner(id: string): Promise<StoredFile | null> {
+    const result = await this.pool.query<{ banner: Buffer; banner_type: string; updated_at: Date }>(
+      `SELECT banner, banner_type, updated_at FROM games WHERE id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? { data: row.banner, contentType: row.banner_type, updatedAt: row.updated_at.getTime() } : null;
+  }
+
+  async getGameRom(id: string): Promise<StoredFile | null> {
+    const result = await this.pool.query<{ rom: Buffer; updated_at: Date }>(
+      `SELECT rom, updated_at FROM games WHERE id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? { data: row.rom, contentType: 'application/octet-stream', updatedAt: row.updated_at.getTime() } : null;
+  }
+
+  async upsertGame(game: GameUpsert): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO games (id, title, hint, sort_order, banner, banner_type, rom, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+       ON CONFLICT (id) DO UPDATE SET
+         title = EXCLUDED.title,
+         hint = EXCLUDED.hint,
+         sort_order = EXCLUDED.sort_order,
+         banner = EXCLUDED.banner,
+         banner_type = EXCLUDED.banner_type,
+         rom = EXCLUDED.rom,
+         updated_at = now()`,
+      [game.id, game.title, game.hint, game.sortOrder, game.banner.data, game.banner.contentType, game.rom],
+    );
   }
 }

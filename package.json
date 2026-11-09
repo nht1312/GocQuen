@@ -21,7 +21,8 @@
     "screen-share": "node tools/screen-share-check.mjs",
     "visual": "node tools/visual-check.mjs",
     "visual:mobile": "node tools/mobile-check.mjs",
-    "free-ports": "node tools/free-ports.mjs"
+    "free-ports": "node tools/free-ports.mjs",
+    "seed:games": "node tools/seed-games.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

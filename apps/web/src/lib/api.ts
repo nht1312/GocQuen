@@ -1,6 +1,7 @@
 import type {
   AvatarConfig,
   CafeInfo,
+  GameSummary,
   GuestSession,
   JoinResult,
   ModerationReason,
@@ -43,6 +44,21 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
 
 export const api = {
   cafeInfo: () => request<CafeInfo>('/cafe'),
+
+  /** Khu Chơi Game library, read from the database. */
+  games: () => request<{ games: GameSummary[] }>('/games'),
+
+  /** A game's .nes file, as raw bytes (guest session required). */
+  gameRom: async (token: string, romUrl: string): Promise<Uint8Array> => {
+    let response: Response;
+    try {
+      response = await fetch(`${SERVER_URL}${romUrl}`, { headers: { authorization: `Bearer ${token}` } });
+    } catch {
+      throw new ApiError('Không kết nối được tới quán. Hãy kiểm tra kết nối mạng của bạn.', 0);
+    }
+    if (!response.ok) throw new ApiError(`Không tải được game (${response.status})`, response.status);
+    return new Uint8Array(await response.arrayBuffer());
+  },
 
   createGuest: (displayName?: string) =>
     request<GuestSession>('/auth/guest', {

@@ -3,6 +3,7 @@ import { AuthController } from './auth/auth.controller';
 import { SessionGuard } from './auth/session.guard';
 import { SessionService } from './auth/session.service';
 import { CafeController } from './cafe/cafe.controller';
+import { GamesController } from './games/games.controller';
 import { AppConfig } from './config/app-config';
 import { MetricsController } from './metrics/metrics.controller';
 import { MetricsService } from './metrics/metrics.service';
@@ -20,6 +21,7 @@ import { InstanceManager } from './world/instance-manager.service';
   controllers: [
     AuthController,
     CafeController,
+    GamesController,
     VoiceController,
     ScreenShareController,
     ModerationController,
