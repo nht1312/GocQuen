@@ -36,7 +36,9 @@ export class AppConfig {
    * accepts any localhost port, so running the web app on a spare port does
    * not look like the server being down.
    */
-  readonly corsOrigins: string[] | ((origin: string, callback: (error: Error | null, allow?: boolean) => void) => void) =
+  readonly corsOrigins:
+    | string[]
+    | ((origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => void) =
     this.isProduction
       ? this.configuredOrigins
       : (origin, callback) => {

@@ -49,7 +49,7 @@ export const api = {
   games: () => request<{ games: GameSummary[] }>('/games'),
 
   /** A game's .nes file, as raw bytes (guest session required). */
-  gameRom: async (token: string, romUrl: string): Promise<Uint8Array> => {
+  gameRom: async (token: string, romUrl: string): Promise<ArrayBuffer> => {
     let response: Response;
     try {
       response = await fetch(`${SERVER_URL}${romUrl}`, { headers: { authorization: `Bearer ${token}` } });
@@ -57,7 +57,7 @@ export const api = {
       throw new ApiError('Không kết nối được tới quán. Hãy kiểm tra kết nối mạng của bạn.', 0);
     }
     if (!response.ok) throw new ApiError(`Không tải được game (${response.status})`, response.status);
-    return new Uint8Array(await response.arrayBuffer());
+    return response.arrayBuffer();
   },
 
   createGuest: (displayName?: string) =>
