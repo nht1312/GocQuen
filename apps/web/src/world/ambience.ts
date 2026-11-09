@@ -86,8 +86,13 @@ export function daylightAt(
   return { daylight, phase };
 }
 
+/** Vietnam is UTC+7 all year (no daylight saving). */
+export const VIETNAM_UTC_OFFSET_MINUTES = 7 * 60;
+
+/** Minutes since midnight in Vietnam time, whatever the visitor's timezone. */
 function minutesOf(date: Date): number {
-  return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+  const utc = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
+  return (utc + VIETNAM_UTC_OFFSET_MINUTES) % 1440;
 }
 
 function minutesOfIso(iso: string | undefined): number | undefined {
@@ -146,8 +151,9 @@ async function fetchSnapshot(): Promise<Snapshot | null> {
 
 /** Current ambience from the last snapshot (or the clock alone). */
 export function currentAmbience(now = new Date()): WorldAmbience {
-  const offset = snapshot?.clockOffset ?? 0;
-  const minutes = (((minutesOf(now) + offset) % 1440) + 1440) % 1440;
+  // One clock for the whole café: Vietnam time, before and after the
+  // weather arrives, for every visitor.
+  const minutes = minutesOf(now);
   const { daylight, phase } = daylightAt(minutes, snapshot?.sunrise, snapshot?.sunset);
   return {
     daylight,
