@@ -184,6 +184,8 @@ export interface GameSummary {
   title: string;
   /** Short controls hint. */
   hint: string;
+  /** Who made the game, shown under it. */
+  credit: string;
   /** Server-relative URL of the banner image (cache-busted by version). */
   bannerUrl: string;
   /** Server-relative URL of the .nes file (needs a guest session). */

@@ -4,14 +4,12 @@ import { MAP_HEIGHT, MAP_WIDTH, isWalkable, worldToScreen } from '@virtual-cafe/
  * The café cats — decorative and local to each browser: not players, never
  * sent to the server, they block nobody and take no seats.
  *
- *  - One asleep on the corner of the order counter.
- *  - One asleep on the rug in the lounge.
- *  - One that wanders the room: ambles or dashes to a random spot, sometimes
+ *  - Three cats (ginger, white, grey) that wander the room: ambles or dashes to a random spot, sometimes
  *    hops when it gets there, then sits a while.
  *
- * Walk up to a cat and press F (or tap the prompt on a phone): a sleeping
- * cat is stroked (it purrs, hearts float up); the wandering one is hugged
- * (it stops, says "Meo meo!" and meows).
+ * Now and then a cat curls up for a nap where it stopped. Walk up and press
+ * F (or tap the prompt on a phone): a sleeping cat is stroked (it purrs and
+ * dozes on); an awake one is hugged (it stops, says "Meo meo!" and meows).
  */
 
 export type CatReaction = 'pet' | 'hug';
@@ -21,8 +19,6 @@ const WALK = 0.6; // tiles per second
 const RUN = 1.7;
 const HOP_SECONDS = 0.55;
 const FX_MS = 2600;
-/** Counter top height in world pixels (furniture.ts draws it at 58). */
-const COUNTER_TOP = 58;
 
 interface CatLook {
   fur: string;
@@ -34,22 +30,15 @@ const GINGER: CatLook = { fur: '#e08a3c', dark: '#b8662a', belly: '#f6d3a8' };
 const WHITE: CatLook = { fur: '#f2ece2', dark: '#c8bfb2', belly: '#ffffff' };
 const GREY: CatLook = { fur: '#8f8a84', dark: '#6b6661', belly: '#c9c4bd' };
 
-interface Sleeper {
-  x: number;
-  y: number;
-  /** World pixels above the floor (on the counter, or 0 on the rug). */
-  lift: number;
-  depth: number;
-  look: CatLook;
-  flip: boolean;
-  seed: number;
-  /** When it was last stroked (scene ms). */
-  fxStart: number;
-}
-
-type WalkerState = 'rest' | 'move' | 'hop' | 'hug';
+type WalkerState = 'rest' | 'move' | 'hop' | 'hug' | 'sleep' | 'pet';
 
 interface Walker {
+  /** Never wanders: a cat that only ever sleeps where it was put. */
+  fixed?: boolean;
+  /** World pixels above the floor (e.g. lying on a table top). */
+  lift?: number;
+  /** Explicit draw depth, for a cat lying on furniture. */
+  depth?: number;
   x: number;
   y: number;
   tx: number;
@@ -106,33 +95,64 @@ function randomFloor(): { x: number; y: number } {
 const SAFE_SPOT = { x: 6.5, y: 10.5 };
 
 export class CatColony {
-  readonly sleepers: Sleeper[] = [
-    // The free end of the counter (x 2, y 3), before the espresso machine.
-    { x: 2.5, y: 3.55, lift: COUNTER_TOP, depth: 2 + 1 + 3 + 1 + 0.05, look: GINGER, flip: false, seed: 1, fxStart: -1e9 },
-    // On the lounge rug, beside the sofa.
-    { x: 3.6, y: 14.6, lift: 0, depth: 3.6 + 14.6 + 1.2, look: WHITE, flip: true, seed: 2, fxStart: -1e9 },
-  ];
-
-  readonly walker: Walker;
-
-  constructor() {
+  /** Three café cats, all free to wander: ginger, white and grey. */
+  readonly walkers: Walker[] = [GINGER, WHITE, GREY].map((look) => {
     const at = randomFloor();
-    this.walker = {
+    return {
       ...at,
       tx: at.x,
       ty: at.y,
       speed: WALK,
-      state: 'rest',
-      timer: 1 + Math.random() * 3,
-      flip: false,
-      phase: 0,
-      look: GREY,
+      state: 'rest' as WalkerState,
+      timer: 1 + Math.random() * 4,
+      flip: Math.random() < 0.5,
+      phase: Math.random() * 10,
+      look,
       fxStart: -1e9,
     };
+  });
+
+  /** Plus one cat that only sleeps, curled up on the middle of the community table. */
+  constructor() {
+    this.walkers.push({
+      x: 11.5,
+      y: 7.7,
+      tx: 11.5,
+      ty: 7.7,
+      speed: 0,
+      state: 'sleep',
+      timer: 1e9,
+      flip: true,
+      phase: 3,
+      look: { fur: '#5b4636', dark: '#3d2e23', belly: '#8a7260' }, // brown tabby
+      fxStart: -1e9,
+      fixed: true,
+      // Community table top (furniture.ts draws it at 44).
+      lift: 44,
+      // Just after the table slice it lies on (x 11: 11 + 1 + 7 + 2).
+      depth: 21.05,
+    });
   }
 
   update(dt: number, reducedMotion: boolean): void {
-    const c = this.walker;
+    for (const cat of this.walkers) {
+      if (cat.fixed) {
+        cat.phase += dt;
+        // Stroked: purr for a moment, then simply keep sleeping.
+        if (cat.state === 'pet') {
+          cat.timer -= dt;
+          if (cat.timer <= 0) {
+            cat.state = 'sleep';
+            cat.timer = 1e9;
+          }
+        }
+        continue;
+      }
+      this.step(cat, dt, reducedMotion);
+    }
+  }
+
+  private step(c: Walker, dt: number, reducedMotion: boolean): void {
     c.phase += dt;
     // Whatever happened (a long pause, a map change), never stay outside.
     if (!inRoom(c.x, c.y)) {
@@ -146,6 +166,21 @@ export class CatColony {
       if (c.timer <= 0) {
         c.state = 'rest';
         c.timer = 2 + Math.random() * 3;
+      }
+      return;
+    }
+    // Asleep (or being stroked): curled up where it is, then wakes on its own.
+    if (c.state === 'sleep' || c.state === 'pet') {
+      c.timer -= dt;
+      if (c.timer <= 0) {
+        if (c.state === 'pet') {
+          // Stroking over: it settles back to sleep for a while.
+          c.state = 'sleep';
+          c.timer = 8 + Math.random() * 10;
+        } else {
+          c.state = 'rest';
+          c.timer = 1 + Math.random() * 2;
+        }
       }
       return;
     }
@@ -187,7 +222,12 @@ export class CatColony {
     if (left <= step) {
       c.x = c.tx;
       c.y = c.ty;
-      if (Math.random() < 0.45) {
+      const roll = Math.random();
+      if (roll < 0.3) {
+        // Nap: 20–45 s curled up on the spot.
+        c.state = 'sleep';
+        c.timer = 20 + Math.random() * 25;
+      } else if (roll < 0.6) {
         c.state = 'hop';
         c.timer = HOP_SECONDS;
       } else {
@@ -208,40 +248,33 @@ export class CatColony {
     c.y = ny;
   }
 
-  /** Where each cat can be clicked, and what clicking it does. */
+  /** A sleeping cat is stroked (purrs, stays asleep); an awake one is hugged. */
   targets(): CatTarget[] {
-    return [
-      ...this.sleepers.map((s) => ({
-        kind: 'pet' as const,
-        x: s.x,
-        y: s.y,
-        lift: s.lift,
-        react: (now: number): CatReaction => {
-          s.fxStart = now;
-          return 'pet';
-        },
-      })),
-      {
-        kind: 'hug' as const,
-        x: this.walker.x,
-        y: this.walker.y,
+    return this.walkers.map((cat) => {
+      const asleep = cat.state === 'sleep' || cat.state === 'pet';
+      return {
+        kind: asleep ? ('pet' as const) : ('hug' as const),
+        x: cat.x,
+        y: cat.y,
         lift: 0,
         react: (now: number): CatReaction => {
-          this.walker.state = 'hug';
-          this.walker.timer = FX_MS / 1000;
-          this.walker.fxStart = now;
-          return 'hug';
+          cat.fxStart = now;
+          cat.timer = FX_MS / 1000;
+          cat.state = asleep ? 'pet' : 'hug';
+          return asleep ? 'pet' : 'hug';
         },
-      },
-    ];
+      };
+    });
   }
 
   drawables(now: number, reducedMotion: boolean): Array<{ depth: number; draw: (ctx: CanvasRenderingContext2D) => void }> {
-    const c = this.walker;
-    return [
-      ...this.sleepers.map((s) => ({ depth: s.depth, draw: (ctx: CanvasRenderingContext2D) => drawSleeper(ctx, s, now, reducedMotion) })),
-      { depth: c.x + c.y + 1.2, draw: (ctx: CanvasRenderingContext2D) => drawWalker(ctx, c, now) },
-    ];
+    return this.walkers.map((cat) => ({
+      depth: cat.depth ?? cat.x + cat.y + 1.2,
+      draw: (ctx: CanvasRenderingContext2D) =>
+        cat.state === 'sleep' || cat.state === 'pet'
+          ? drawSleeping(ctx, cat, now, reducedMotion)
+          : drawWalker(ctx, cat, now),
+    }));
   }
 }
 
@@ -397,19 +430,19 @@ function bubble(ctx: CanvasRenderingContext2D, x: number, y: number, text: strin
   ctx.globalAlpha = 1;
 }
 
-function drawSleeper(ctx: CanvasRenderingContext2D, cat: Sleeper, now: number, reducedMotion: boolean): void {
+/** Curled up asleep: a slow breath and a "z"; stroked = happy eyes, hearts, purr text. */
+function drawSleeping(ctx: CanvasRenderingContext2D, cat: Walker, now: number, reducedMotion: boolean): void {
   const p = worldToScreen(cat.x, cat.y);
   const x = p.x;
-  const y = p.y - cat.lift;
+  const y = p.y - (cat.lift ?? 0);
   const s = cat.flip ? -1 : 1;
-  const petted = now - cat.fxStart < FX_MS;
-  const breathe = reducedMotion ? 0 : Math.sin(now / (petted ? 400 : 900) + cat.seed) * 0.6;
+  const petted = cat.state === 'pet';
+  const breathe = reducedMotion ? 0 : Math.sin(now / (petted ? 400 : 900) + cat.phase) * 0.6;
   shadow(ctx, x, y + 2, 11);
   ctx.fillStyle = cat.look.fur;
   ctx.beginPath();
   ctx.ellipse(x, y - 5 - breathe * 0.5, 11, 6.5 + breathe * 0.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Tail wrapped round the front; it flicks while being stroked.
   const flick = petted && !reducedMotion ? Math.sin(now / 120) * 0.15 : 0;
   ctx.strokeStyle = cat.look.dark;
   ctx.lineWidth = 3;
@@ -438,7 +471,7 @@ function drawSleeper(ctx: CanvasRenderingContext2D, cat: Sleeper, now: number, r
     ctx.stroke();
   }
   if (!reducedMotion) {
-    const rise = (now / 2200 + cat.seed * 0.37) % 1;
+    const rise = (now / 2200 + cat.phase * 0.37) % 1;
     ctx.globalAlpha = 0.7 * (1 - rise);
     ctx.fillStyle = '#f5ece0';
     ctx.font = `600 ${7 + rise * 4}px ui-sans-serif, system-ui, sans-serif`;

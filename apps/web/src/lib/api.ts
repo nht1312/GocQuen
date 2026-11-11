@@ -45,14 +45,14 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
 export const api = {
   cafeInfo: () => request<CafeInfo>('/cafe'),
 
-  /** Khu Chơi Game library, read from the database. */
+  /** Khu Chơi Game library, read from the database (synced from games/ on boot). */
   games: () => request<{ games: GameSummary[] }>('/games'),
 
-  /** A game's .nes file, as raw bytes (guest session required). */
-  gameRom: async (token: string, romUrl: string): Promise<ArrayBuffer> => {
+  /** A game's .nes file, as raw bytes. The URL is content-addressed, so it caches. */
+  gameRom: async (romUrl: string): Promise<ArrayBuffer> => {
     let response: Response;
     try {
-      response = await fetch(`${SERVER_URL}${romUrl}`, { headers: { authorization: `Bearer ${token}` } });
+      response = await fetch(`${SERVER_URL}${romUrl}`);
     } catch {
       throw new ApiError('Không kết nối được tới quán. Hãy kiểm tra kết nối mạng của bạn.', 0);
     }

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { STORAGE_KEYS, type GameSummary } from '@virtual-cafe/shared';
+import type { GameSummary } from '@virtual-cafe/shared';
 import { SERVER_URL, api } from '@/lib/api';
-import { readLocal } from '@/lib/storage';
 
 type Phase = 'idle' | 'loading' | 'playing' | 'error';
 
@@ -54,12 +53,7 @@ export function GamingRoom() {
     setMessage('');
     (async () => {
       try {
-        const session = readLocal(STORAGE_KEYS.session, { token: '' });
-        if (!session.token) throw new Error('no session');
-        const [{ Nostalgist }, bytes] = await Promise.all([
-          import('nostalgist'),
-          api.gameRom(session.token, game.romUrl),
-        ]);
+        const [{ Nostalgist }, bytes] = await Promise.all([import('nostalgist'), api.gameRom(game.romUrl)]);
         if (cancelled) return;
         const instance = await Nostalgist.launch({
           core: 'fceumm',
@@ -76,7 +70,7 @@ export function GamingRoom() {
         if (cancelled) return;
         console.error('[game] failed to start', error);
         setPhase('error');
-        setMessage('Không mở được game này. Hãy vào quán trước (để có phiên khách) rồi thử lại.');
+        setMessage('Không mở được game này. Kiểm tra kết nối mạng rồi thử lại.');
       }
     })();
     return () => {
@@ -153,9 +147,10 @@ export function GamingRoom() {
                       alt={item.title}
                       className="aspect-[8/7] w-full bg-black object-cover [image-rendering:pixelated]"
                     />
-                    <span className="block px-3 py-2 text-sm font-semibold text-[#e2d0ff] group-hover:text-white">
+                    <span className="block px-3 pt-2 text-sm font-semibold text-[#e2d0ff] group-hover:text-white">
                       {item.title}
                     </span>
+                    <span className="block truncate px-3 pb-2 text-[10px] text-linen/50">{item.credit}</span>
                   </button>
                 </li>
               ))}
@@ -176,6 +171,7 @@ export function GamingRoom() {
               ) : null}
             </div>
             <p className="mt-3 text-center text-[11px] text-linen/55">{game.hint}</p>
+            {game.credit ? <p className="mt-1 text-center text-[10px] text-linen/40">{game.credit}</p> : null}
           </section>
         )}
       </div>

@@ -136,3 +136,9 @@ CREATE TABLE IF NOT EXISTS games (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Content hashes (sha256 hex) let the boot sync skip unchanged files and give
+-- every file an immutable, cacheable URL. Credit is shown under each game.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS credit        TEXT NOT NULL DEFAULT '';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_sha256    TEXT NOT NULL DEFAULT '';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS banner_sha256 TEXT NOT NULL DEFAULT '';

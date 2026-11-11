@@ -44,12 +44,15 @@ export interface ScreenShareSessionRecord {
   endReason: string | null;
 }
 
-/** A game's metadata, without its files. */
+/** A game's metadata, without its files. Hashes are sha256 hex of each file. */
 export interface GameRecord {
   id: string;
   title: string;
   hint: string;
+  credit: string;
   sortOrder: number;
+  romSha256: string;
+  bannerSha256: string;
   updatedAt: number;
 }
 
@@ -57,16 +60,17 @@ export interface GameRecord {
 export interface StoredFile {
   data: Buffer;
   contentType: string;
-  updatedAt: number;
+  sha256: string;
 }
 
 export interface GameUpsert {
   id: string;
   title: string;
   hint: string;
+  credit: string;
   sortOrder: number;
-  banner: { data: Buffer; contentType: string };
-  rom: Buffer;
+  banner: { data: Buffer; contentType: string; sha256: string };
+  rom: { data: Buffer; sha256: string };
 }
 
 export abstract class Store {
@@ -113,4 +117,5 @@ export abstract class Store {
   abstract getGameBanner(id: string): Promise<StoredFile | null>;
   abstract getGameRom(id: string): Promise<StoredFile | null>;
   abstract upsertGame(game: GameUpsert): Promise<void>;
+  abstract deleteGame(id: string): Promise<void>;
 }

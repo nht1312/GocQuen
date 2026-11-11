@@ -3,7 +3,6 @@ import { loadedEnvFile } from './config/load-env';
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/app-config';
@@ -11,16 +10,14 @@ import { AppConfig } from './config/app-config';
 async function bootstrap(): Promise<void> {
   if (loadedEnvFile) new Logger('Bootstrap').log(`Loaded environment from ${loadedEnvFile}`);
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
-  // Game uploads carry a ROM and a banner as base64 (a few MB at most).
-  app.useBodyParser('json', { limit: '8mb' });
+  const app = await NestFactory.create(AppModule, { bufferLogs: false });
   const config = app.get(AppConfig);
   config.validate();
 
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Minimal hardening; a reverse proxy should add HSTS and TLS termination.

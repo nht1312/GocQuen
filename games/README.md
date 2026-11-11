@@ -1,11 +1,15 @@
-# Khu Chơi Game — game files
+# Khu Chơi Game — game library
 
-Games are stored in the database (`games` table) and served by the API
-server. This folder is only the source the seed script uploads from.
+This folder is the **source of truth** for the games. On every boot the API
+server syncs it into the `games` table and serves the files from there.
 
-    GAMES_ADMIN_TOKEN=... SERVER_URL=http://localhost:4000 npm run seed:games
+- `games.json` — id (lowercase, digits, dashes), title, controls hint,
+  credit, order, and the paths of the two files below.
+- `banners/` — banner images (PNG/JPEG/WebP).
+- `roms/` — `.nes` files (iNES / NES 2.0, ≤ 4 MB).
 
-- `games.json` — id, title, controls hint, order, and paths to the files.
-- `banners/` — banner images (PNG/JPEG/WebP, under 1 MB).
-- `roms/` — `.nes` files (under 2 MB). **Git-ignored**: commercial ROMs may not
-  be redistributed. Use homebrew or licensed titles for a public deploy.
+To add, change or remove a game: edit this folder, commit, deploy. Only games
+whose files changed are rewritten; games no longer listed are deleted.
+
+Only add games you are allowed to redistribute (homebrew with a licence or
+the author's permission). Credit the author in `credit`.

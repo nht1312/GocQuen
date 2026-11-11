@@ -318,53 +318,81 @@ export class PostgresStore extends Store {
   }
 
   async listGames(): Promise<GameRecord[]> {
+    // Metadata only — the files stay in the database until asked for.
     const result = await this.pool.query<{
       id: string;
       title: string;
       hint: string;
+      credit: string;
       sort_order: number;
+      rom_sha256: string;
+      banner_sha256: string;
       updated_at: Date;
-    }>(`SELECT id, title, hint, sort_order, updated_at FROM games ORDER BY sort_order, title`);
+    }>(
+      `SELECT id, title, hint, credit, sort_order, rom_sha256, banner_sha256, updated_at
+         FROM games ORDER BY sort_order, title`,
+    );
     return result.rows.map((row) => ({
       id: row.id,
       title: row.title,
       hint: row.hint,
+      credit: row.credit,
       sortOrder: row.sort_order,
+      romSha256: row.rom_sha256,
+      bannerSha256: row.banner_sha256,
       updatedAt: row.updated_at.getTime(),
     }));
   }
 
   async getGameBanner(id: string): Promise<StoredFile | null> {
-    const result = await this.pool.query<{ banner: Buffer; banner_type: string; updated_at: Date }>(
-      `SELECT banner, banner_type, updated_at FROM games WHERE id = $1`,
+    const result = await this.pool.query<{ banner: Buffer; banner_type: string; banner_sha256: string }>(
+      `SELECT banner, banner_type, banner_sha256 FROM games WHERE id = $1`,
       [id],
     );
     const row = result.rows[0];
-    return row ? { data: row.banner, contentType: row.banner_type, updatedAt: row.updated_at.getTime() } : null;
+    return row ? { data: row.banner, contentType: row.banner_type, sha256: row.banner_sha256 } : null;
   }
 
   async getGameRom(id: string): Promise<StoredFile | null> {
-    const result = await this.pool.query<{ rom: Buffer; updated_at: Date }>(
-      `SELECT rom, updated_at FROM games WHERE id = $1`,
+    const result = await this.pool.query<{ rom: Buffer; rom_sha256: string }>(
+      `SELECT rom, rom_sha256 FROM games WHERE id = $1`,
       [id],
     );
     const row = result.rows[0];
-    return row ? { data: row.rom, contentType: 'application/octet-stream', updatedAt: row.updated_at.getTime() } : null;
+    return row ? { data: row.rom, contentType: 'application/octet-stream', sha256: row.rom_sha256 } : null;
   }
 
   async upsertGame(game: GameUpsert): Promise<void> {
     await this.pool.query(
-      `INSERT INTO games (id, title, hint, sort_order, banner, banner_type, rom, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      `INSERT INTO games (id, title, hint, credit, sort_order, banner, banner_type, banner_sha256, rom, rom_sha256, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
        ON CONFLICT (id) DO UPDATE SET
          title = EXCLUDED.title,
          hint = EXCLUDED.hint,
+         credit = EXCLUDED.credit,
          sort_order = EXCLUDED.sort_order,
          banner = EXCLUDED.banner,
          banner_type = EXCLUDED.banner_type,
+         banner_sha256 = EXCLUDED.banner_sha256,
          rom = EXCLUDED.rom,
+         rom_sha256 = EXCLUDED.rom_sha256,
          updated_at = now()`,
-      [game.id, game.title, game.hint, game.sortOrder, game.banner.data, game.banner.contentType, game.rom],
+      [
+        game.id,
+        game.title,
+        game.hint,
+        game.credit,
+        game.sortOrder,
+        game.banner.data,
+        game.banner.contentType,
+        game.banner.sha256,
+        game.rom.data,
+        game.rom.sha256,
+      ],
     );
+  }
+
+  async deleteGame(id: string): Promise<void> {
+    await this.pool.query(`DELETE FROM games WHERE id = $1`, [id]);
   }
 }

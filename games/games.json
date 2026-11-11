@@ -1,28 +1,13 @@
 {
   "games": [
     {
-      "id": "super-mario",
-      "title": "Super Mario Bros.",
-      "banner": "banners/super-mario.jpg",
-      "rom": "roms/super-mario.nes",
+      "id": "bobl",
+      "title": "Böbl",
+      "banner": "banners/bobl.png",
+      "rom": "roms/bobl.nes",
       "sortOrder": 1,
-      "hint": "Mũi tên: di chuyển · X: nhảy · Z: chạy · Enter: bắt đầu"
-    },
-    {
-      "id": "contra",
-      "title": "Contra",
-      "banner": "banners/contra.jpg",
-      "rom": "roms/contra.nes",
-      "sortOrder": 2,
-      "hint": "Mũi tên: di chuyển · X: nhảy · Z: bắn · Enter: bắt đầu"
-    },
-    {
-      "id": "tetris",
-      "title": "Tetris",
-      "banner": "banners/tetris.jpg",
-      "rom": "roms/tetris.nes",
-      "sortOrder": 3,
-      "hint": "Mũi tên: di chuyển · X / Z: xoay · Enter: bắt đầu"
+      "hint": "Giữ X để lặn, thả ra để nhảy · Z: nhảy đôi (khi có) · Enter: bắt đầu",
+      "credit": "Morphcat Games — morphcatgames.itch.io"
     }
   ]
 }

@@ -77,12 +77,12 @@ const REST_STEPS = [
   },
   {
     title: 'Khu Chơi Game',
-    body: 'Đi tới biển neon “KHU CHƠI GAME” ở góc trên bên phải. Khi đứng trước biển, chọn “Vào Khu Chơi Game” để sang khu riêng. Chọn một game (Super Mario, Contra, Tetris) để chơi ngay trên trình duyệt, rồi bấm “Quay lại quán” để trở về.',
+    body: 'Đi tới biển neon “KHU CHƠI GAME” ở góc trên bên phải. Khi đứng trước biển, chọn “Vào Khu Chơi Game” để sang khu riêng. Chọn một game (như Böbl) để chơi ngay trên trình duyệt, rồi bấm “Quay lại quán” để trở về.',
     hint: 'Biển neon góc phải',
   },
   {
     title: 'Những chú mèo của quán',
-    body: 'Có 2 chú mèo ngủ ở góc quầy và khu thư giãn, và một chú mèo xám hay chạy nhảy quanh quán. Đi lại gần một chú mèo rồi nhấn F (trên điện thoại: chạm vào nút hiện ra) — mèo ngủ thì được vuốt ve, mèo xám thì được ôm và kêu meo meo.',
+    body: 'Có 3 chú mèo (cam, trắng và xám) hay chạy nhảy quanh quán, thỉnh thoảng nằm cuộn tròn ngủ một lúc, và một chú mèo mướp nằm ngủ trên bàn chung giữa quán. Đi lại gần rồi nhấn F (trên điện thoại: chạm vào nút hiện ra) — mèo đang ngủ thì được vuốt ve, mèo đang thức thì được ôm và kêu meo meo.',
     hint: 'Lại gần mèo · phím F',
   },
 ];

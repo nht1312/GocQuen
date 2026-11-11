@@ -4,6 +4,7 @@ import { SessionGuard } from './auth/session.guard';
 import { SessionService } from './auth/session.service';
 import { CafeController } from './cafe/cafe.controller';
 import { GamesController } from './games/games.controller';
+import { GameSync } from './games/game-sync.service';
 import { AppConfig } from './config/app-config';
 import { MetricsController } from './metrics/metrics.controller';
 import { MetricsService } from './metrics/metrics.service';
@@ -36,6 +37,7 @@ import { InstanceManager } from './world/instance-manager.service';
     VoiceService,
     MetricsService,
     RealtimeGateway,
+    GameSync,
   ],
 })
 export class AppModule {}

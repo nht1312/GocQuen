@@ -57,11 +57,6 @@ export class AppConfig {
 
   readonly databaseUrl = process.env.DATABASE_URL?.trim() || null;
 
-  /**
-   * Secret for uploading games (PUT /games/:id, used by tools/seed-games.mjs).
-   * Unset = uploads are switched off; the library can still be read.
-   */
-  readonly gamesAdminToken = process.env.GAMES_ADMIN_TOKEN?.trim() || null;
 
   /**
    * TLS settings for the database connection.

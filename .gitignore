@@ -8,6 +8,3 @@ out/
 coverage/
 tools/.shots/
 tools/.shots-mobile/
-
-# Commercial NES ROMs: local seed only, never committed
-games/roms/

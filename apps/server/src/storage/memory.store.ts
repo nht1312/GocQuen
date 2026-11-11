@@ -137,11 +137,23 @@ export class MemoryStore extends Store {
   }
 
   async upsertGame(game: GameUpsert): Promise<void> {
-    const updatedAt = Date.now();
     this.games.set(game.id, {
-      record: { id: game.id, title: game.title, hint: game.hint, sortOrder: game.sortOrder, updatedAt },
-      banner: { data: game.banner.data, contentType: game.banner.contentType, updatedAt },
-      rom: { data: game.rom, contentType: 'application/octet-stream', updatedAt },
+      record: {
+        id: game.id,
+        title: game.title,
+        hint: game.hint,
+        credit: game.credit,
+        sortOrder: game.sortOrder,
+        romSha256: game.rom.sha256,
+        bannerSha256: game.banner.sha256,
+        updatedAt: Date.now(),
+      },
+      banner: { data: game.banner.data, contentType: game.banner.contentType, sha256: game.banner.sha256 },
+      rom: { data: game.rom.data, contentType: 'application/octet-stream', sha256: game.rom.sha256 },
     });
+  }
+
+  async deleteGame(id: string): Promise<void> {
+    this.games.delete(id);
   }
 }
